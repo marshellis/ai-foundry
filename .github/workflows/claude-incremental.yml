@@ -1,8 +1,8 @@
-name: Igor
+﻿name: Igor
 
 on:
   schedule:
-    - cron: '0 2 * * *' # Daily at 2am UTC
+    - cron: '0 2 * * *'  # Daily at 2am UTC
   workflow_dispatch:
     inputs:
       issue_number:
@@ -41,12 +41,14 @@ jobs:
           OPEN_PR_BRANCHES=$(gh pr list --repo "$REPO" --label "claude-incremental" --state open --json headRefName --jq '.[].headRefName')
 
           if [ -n "$INPUT_ISSUE_NUMBER" ]; then
+            # Manual dispatch: use the specified issue but check for existing PR
             ISSUE_NUMBER="$INPUT_ISSUE_NUMBER"
             if echo "$OPEN_PR_BRANCHES" | grep -q "^claude-incremental/${ISSUE_NUMBER}-"; then
               echo "::notice::Issue #$ISSUE_NUMBER already has an open PR, skipping"
               exit 0
             fi
           else
+            # Scheduled: find the oldest issue that doesn't already have an open PR
             ISSUES=$(gh issue list --repo "$REPO" --label "claude-incremental" --state open --json number,createdAt --jq 'sort_by(.createdAt) | .[].number')
 
             ISSUE_NUMBER=""
@@ -66,6 +68,7 @@ jobs:
 
           echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
 
+          # Fetch issue details
           ISSUE_DATA=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title,body)
           ISSUE_TITLE=$(echo "$ISSUE_DATA" | jq -r '.title')
           ISSUE_BODY=$(echo "$ISSUE_DATA" | jq -r '.body')
@@ -78,96 +81,99 @@ jobs:
           echo "$ISSUE_BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-  implement:
+  execute:
     needs: find-work
     if: needs.find-work.outputs.issue_number != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      issues: write
       pull-requests: write
+      issues: write
+      id-token: write
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ISSUE_NUMBER: ${{ needs.find-work.outputs.issue_number }}
-      ISSUE_TITLE: ${{ needs.find-work.outputs.issue_title }}
-      ISSUE_BODY: ${{ needs.find-work.outputs.issue_body }}
+      DJANGO_DATABASE_USER: postgres
+      DJANGO_DATABASE_PASSWORD: postgres_password
+      SECRET_KEY: secret-test-key
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Claude Code
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: |
+          uv venv
+          uv sync --locked --dev
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
 
       - name: Create branch
+        id: branch
         run: |
-          SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | head -c 50)
-          BRANCH="claude-incremental/${ISSUE_NUMBER}-${SLUG}"
-          git checkout -b "$BRANCH"
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          BRANCH_NAME="claude-incremental/${{ needs.find-work.outputs.issue_number }}-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      - name: Run Claude to implement task
-        run: |
-          claude -p "You are Igor, an incremental worker. You are working on issue #$ISSUE_NUMBER.
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are working on an incremental project tracked in issue #${{ needs.find-work.outputs.issue_number }}.
 
-          ISSUE TITLE: $ISSUE_TITLE
+            ## Issue Title
+            ${{ needs.find-work.outputs.issue_title }}
 
-          ISSUE BODY:
-          $ISSUE_BODY
+            ## Issue Content
+            ${{ needs.find-work.outputs.issue_body }}
 
-          INSTRUCTIONS:
-          1. Read the issue carefully and find the FIRST unchecked task (a line starting with '- [ ]' that does NOT start with '- [ ] blocked:')
-          2. Implement ONLY that one task
-          3. Make clean, well-tested changes
-          4. Keep changes minimal and focused on the single task
+            ## Instructions
+            1. Read the issue and identify the first unchecked task (- [ ]) that is not marked as blocked
+            2. Implement that task, making git commits as you go
+            3. Run lint and tests, fix any issues:
+               - Python: ruff check --fix && ruff format
+               - JS/TS: npm run lint
+               - Python test: pytest path/to/file.py -v
+            4. Push the changes you've made to GitHub and create a PR with the 'claude-incremental' label.
+            5. After completing the task, update the issue using gh issue edit to:
+               - Check off the completed task (change - [ ] to - [x])
+               - Add any learnings to the ## Learnings section (create if needed)
+            5. If you cannot complete the task, mark it as blocked (add "blocked:" prefix to the task)
+            6. Add a comment to the issue summarizing what you did
 
-          After implementing, output a summary of what you did." --allowedTools "Bash(git diff:*)" "Bash(git status:*)" "Bash(npm:*)" "Bash(npx:*)" "Bash(node:*)" "Read" "Write" "Edit"
+            If all tasks are complete or blocked, comment on the issue explaining the status.
+          claude_args: '--allowedTools "Bash(npm run lint:*),Bash(npm run type-check:*),Bash(ruff check:*),Bash(ruff format:*),Bash(pytest:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Read,Write,Edit"'
 
-      - name: Commit and push
-        run: |
-          git config user.name "igor[bot]"
-          git config user.email "igor[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "::notice::No changes to commit"
-            exit 0
-          fi
-          git commit -m "igor: implement task from #$ISSUE_NUMBER"
-          git push origin "$BRANCH"
-
-      - name: Create pull request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr create \
-            --title "igor: task from #$ISSUE_NUMBER - $ISSUE_TITLE" \
-            --body "Automated implementation by Igor for issue #$ISSUE_NUMBER.
-
-          ## Issue
-          #$ISSUE_NUMBER
-
-          ## What was done
-          Implemented the first unchecked task from the tracking issue.
-
-          ---
-          *This PR was created automatically by the Igor workflow.*" \
-            --label "claude-incremental" \
-            --head "$BRANCH"
-
-      - name: Update issue - check off task
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          claude -p "You need to update GitHub issue #$ISSUE_NUMBER in repo ${{ github.repository }}.
-
-          The current issue body is:
-          $ISSUE_BODY
-
-          Find the task you just implemented (the first unchecked, non-blocked task) and check it off by changing '- [ ]' to '- [x]'.
-
-          Also add a note under the '## Learnings' section about what you discovered while implementing.
-
-          Use the gh CLI to update the issue body. Use: gh issue edit $ISSUE_NUMBER --repo ${{ github.repository }} --body '<new body>'
-
-          IMPORTANT: Preserve all existing content. Only change the checkbox and add learnings." --allowedTools "Bash(gh:*)"

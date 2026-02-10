@@ -259,8 +259,12 @@ if ($labelCheck -eq "claude-incremental") {
 # -------------------------------------------------------
 Write-Step "Configuring GitHub Actions permissions"
 
-gh api -X PUT "repos/$Repo/actions/permissions" -f "enabled=true" -f "allowed_actions=all" 2>&1 | Out-Null
-gh api -X PUT "repos/$Repo/actions/permissions/workflow" -f "default_workflow_permissions=write" -F "can_approve_pull_request_reviews=true" 2>&1 | Out-Null
+# Set workflow permissions (read-write + PR approval)
+# Note: The first API call (repos/.../actions/permissions) only exists at org level,
+# so we only configure the workflow-level permissions here.
+$permResult = gh api -X PUT "repos/$Repo/actions/permissions/workflow" `
+    -f "default_workflow_permissions=write" `
+    -F "can_approve_pull_request_reviews=true" 2>&1
 
 if ($LASTEXITCODE -eq 0) {
     Write-Ok "Actions permissions configured (read-write + PR approval)"

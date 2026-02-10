@@ -202,7 +202,9 @@ fi
 # -------------------------------------------------------
 step "Configuring GitHub Actions permissions"
 
-gh api -X PUT "repos/$REPO/actions/permissions" -f "enabled=true" -f "allowed_actions=all" 2>/dev/null || true
+# Set workflow permissions (read-write + PR approval)
+# Note: The repos/.../actions/permissions endpoint only exists at org level,
+# so we only configure the workflow-level permissions here.
 if gh api -X PUT "repos/$REPO/actions/permissions/workflow" -f "default_workflow_permissions=write" -F "can_approve_pull_request_reviews=true" 2>/dev/null; then
     ok "Actions permissions configured (read-write + PR approval)"
 else
