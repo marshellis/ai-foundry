@@ -25,7 +25,7 @@
 $ErrorActionPreference = "Stop"
 
 # Version number -- increment this when making changes
-$ScriptVersion = "1.1.0"
+$ScriptVersion = "1.3.0"
 
 function Write-Step {
     param([string]$Message)
@@ -265,17 +265,37 @@ Write-Step "Configuring GitHub Actions permissions"
 # Set workflow permissions (read-write + PR approval)
 # Note: The first API call (repos/.../actions/permissions) only exists at org level,
 # so we only configure the workflow-level permissions here.
+# Suppress stderr to avoid ugly error output when org policy blocks this.
+$ErrorActionPreference = "SilentlyContinue"
 $permResult = gh api -X PUT "repos/$Repo/actions/permissions/workflow" `
     -f "default_workflow_permissions=write" `
-    -F "can_approve_pull_request_reviews=true" 2>&1
+    -F "can_approve_pull_request_reviews=true" 2>$null
+$permExitCode = $LASTEXITCODE
+$ErrorActionPreference = "Stop"
 
-if ($LASTEXITCODE -eq 0) {
+if ($permExitCode -eq 0) {
     Write-Ok "Actions permissions configured (read-write + PR approval)"
 } else {
-    Write-Warn "Could not configure permissions automatically."
-    Write-Host "    Go to: Settings > Actions > General"
-    Write-Host "    Set 'Workflow permissions' to 'Read and write permissions'"
-    Write-Host "    Check 'Allow GitHub Actions to create and approve pull requests'"
+    Write-Warn "Could not configure workflow permissions automatically."
+    Write-Host ""
+    Write-Host "    Igor REQUIRES write permissions to create branches and PRs." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "    This is likely blocked by an organization-level policy." -ForegroundColor Yellow
+    Write-Host "    To fix this, you have two options:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "    Option 1: Change organization settings (if you're an org admin)" -ForegroundColor Cyan
+    Write-Host "      1. Go to: https://github.com/organizations/$($Repo.Split('/')[0])/settings/actions"
+    Write-Host "      2. Under 'Workflow permissions', select 'Read and write permissions'"
+    Write-Host "      3. Check 'Allow GitHub Actions to create and approve pull requests'"
+    Write-Host "      4. Re-run this installer"
+    Write-Host ""
+    Write-Host "    Option 2: Change repository settings (if org allows it)" -ForegroundColor Cyan
+    Write-Host "      1. Go to: https://github.com/$Repo/settings/actions"
+    Write-Host "      2. Under 'Workflow permissions', select 'Read and write permissions'"
+    Write-Host "      3. Check 'Allow GitHub Actions to create and approve pull requests'"
+    Write-Host ""
+    Write-Host "    Without these permissions, Igor will fail when it tries to run." -ForegroundColor Red
+    Write-Host ""
 }
 
 # -------------------------------------------------------

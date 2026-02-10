@@ -19,7 +19,7 @@
 set -euo pipefail
 
 # Version number -- increment this when making changes
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.3.0"
 
 # Colors
 RED='\033[0;31m'
@@ -208,13 +208,30 @@ step "Configuring GitHub Actions permissions"
 # Set workflow permissions (read-write + PR approval)
 # Note: The repos/.../actions/permissions endpoint only exists at org level,
 # so we only configure the workflow-level permissions here.
+ORG_NAME="${REPO%%/*}"
 if gh api -X PUT "repos/$REPO/actions/permissions/workflow" -f "default_workflow_permissions=write" -F "can_approve_pull_request_reviews=true" 2>/dev/null; then
     ok "Actions permissions configured (read-write + PR approval)"
 else
-    warn "Could not configure permissions automatically."
-    echo "    Go to: Settings > Actions > General"
-    echo "    Set 'Workflow permissions' to 'Read and write permissions'"
-    echo "    Check 'Allow GitHub Actions to create and approve pull requests'"
+    warn "Could not configure workflow permissions automatically."
+    echo ""
+    echo -e "    ${YELLOW}Igor REQUIRES write permissions to create branches and PRs.${NC}"
+    echo ""
+    echo -e "    ${YELLOW}This is likely blocked by an organization-level policy.${NC}"
+    echo -e "    ${YELLOW}To fix this, you have two options:${NC}"
+    echo ""
+    echo -e "    ${CYAN}Option 1: Change organization settings (if you're an org admin)${NC}"
+    echo "      1. Go to: https://github.com/organizations/$ORG_NAME/settings/actions"
+    echo "      2. Under 'Workflow permissions', select 'Read and write permissions'"
+    echo "      3. Check 'Allow GitHub Actions to create and approve pull requests'"
+    echo "      4. Re-run this installer"
+    echo ""
+    echo -e "    ${CYAN}Option 2: Change repository settings (if org allows it)${NC}"
+    echo "      1. Go to: https://github.com/$REPO/settings/actions"
+    echo "      2. Under 'Workflow permissions', select 'Read and write permissions'"
+    echo "      3. Check 'Allow GitHub Actions to create and approve pull requests'"
+    echo ""
+    echo -e "    ${RED}Without these permissions, Igor will fail when it tries to run.${NC}"
+    echo ""
 fi
 
 # -------------------------------------------------------
