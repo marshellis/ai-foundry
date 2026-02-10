@@ -38,6 +38,10 @@ export default async function RigDetailPage({
   const rig = getRigBySlug(slug);
   if (!rig) notFound();
 
+  const repoUrl = rig.repository
+    ? `https://github.com/${rig.repository.owner}/${rig.repository.name}/tree/${rig.repository.branch ?? "main"}/${rig.repository.path}`
+    : null;
+
   return (
     <div className="container mx-auto px-4 py-12 sm:px-8">
       {/* Header */}
@@ -68,6 +72,51 @@ export default async function RigDetailPage({
           ))}
         </div>
       </div>
+
+      {/* Quick Install Banner */}
+      {rig.installCommands && (
+        <Card className="mb-8 border-primary/20 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Quick Install</CardTitle>
+            <CardDescription>
+              Run one command in your project directory to install {rig.name}.
+              The script handles everything interactively.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                PowerShell (Windows)
+              </p>
+              <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-sm">
+                <code>{rig.installCommands.powershell}</code>
+              </pre>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Bash (macOS / Linux)
+              </p>
+              <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-sm">
+                <code>{rig.installCommands.bash}</code>
+              </pre>
+            </div>
+            {repoUrl && (
+              <p className="text-xs text-muted-foreground pt-1">
+                Hosted at{" "}
+                <a
+                  href={repoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline font-mono"
+                >
+                  {rig.repository!.owner}/{rig.repository!.name}
+                </a>
+                {" -- "}or point to your own fork.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Main Content */}
@@ -100,7 +149,9 @@ export default async function RigDetailPage({
 
           {/* Setup Steps */}
           <section>
-            <h2 className="text-2xl font-semibold mb-6">Setup</h2>
+            <h2 className="text-2xl font-semibold mb-6">
+              Step-by-Step Setup
+            </h2>
             <div className="space-y-6">
               {rig.setupSteps.map((step, index) => (
                 <div key={step.title} className="flex gap-4">
@@ -154,13 +205,52 @@ export default async function RigDetailPage({
             </CardContent>
           </Card>
 
+          {/* Package Info */}
+          {rig.repository && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Package</CardTitle>
+                <CardDescription>
+                  Install from any public GitHub repo hosting this rig
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Source
+                  </p>
+                  <a
+                    href={repoUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-mono text-primary hover:underline"
+                  >
+                    {rig.repository.owner}/{rig.repository.name}
+                  </a>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Path
+                  </p>
+                  <p className="text-sm font-mono">{rig.repository.path}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Branch
+                  </p>
+                  <p className="text-sm font-mono">
+                    {rig.repository.branch ?? "main"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Files */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Files</CardTitle>
-              <CardDescription>
-                Included in this rig
-              </CardDescription>
+              <CardDescription>Included in this rig</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {rig.files.map((file) => (
@@ -183,7 +273,7 @@ export default async function RigDetailPage({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  View Source
+                  Original Source
                 </a>
               </Button>
             )}

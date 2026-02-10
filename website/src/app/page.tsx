@@ -11,15 +11,16 @@ export default function Home() {
       {/* Hero Section */}
       <section className="container mx-auto flex flex-col items-center gap-8 px-4 py-24 text-center sm:px-8 md:py-32">
         <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-          AI rigs, ready to run.
+          A place to share and test
           <span className="block text-muted-foreground mt-2">
-            Zero setup friction.
+            different AI setups.
           </span>
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground sm:text-xl">
-          AI Foundry is a collection of pre-built AI-powered workflows for
-          personal and coding tasks. Browse rigs, follow the setup guide, and
-          get running in minutes -- not hours.
+          AI Foundry is an open collection of &quot;rigs&quot; -- pre-packaged
+          AI workflows for coding and personal tasks. Each rig comes with a
+          one-command installer so you can try it out without wrestling with
+          configuration.
         </p>
         <div className="flex gap-4">
           <Button asChild size="lg">
@@ -50,30 +51,30 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-semibold">Pick a Rig</h3>
               <p className="text-muted-foreground">
-                Browse the catalog of pre-built AI workflows. Each rig solves a
-                specific problem -- from incremental code refactoring to
-                automated documentation.
+                Browse the catalog of AI workflows people have shared. Each rig
+                is a different approach to using AI -- from incremental code
+                refactoring to automated documentation.
               </p>
             </div>
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold">
                 2
               </div>
-              <h3 className="text-xl font-semibold">Run the Setup</h3>
+              <h3 className="text-xl font-semibold">Run the Installer</h3>
               <p className="text-muted-foreground">
-                Each rig comes with an automated setup script. Run it, answer a
-                few prompts, and the rig handles the rest -- secrets, configs,
-                permissions.
+                Each rig has a one-command installer. Run it, answer a few
+                prompts, and it handles the tedious parts -- secrets, configs,
+                permissions, file copying.
               </p>
             </div>
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-bold">
                 3
               </div>
-              <h3 className="text-xl font-semibold">Let It Work</h3>
+              <h3 className="text-xl font-semibold">Try It Out</h3>
               <p className="text-muted-foreground">
-                Your rig runs on autopilot. It picks up tasks, makes changes,
-                opens PRs, and reports back. You review and merge.
+                See how the rig works in your own project. Tweak it, fork it,
+                or share your own setup back with the community.
               </p>
             </div>
           </div>

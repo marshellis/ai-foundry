@@ -11,6 +11,17 @@ export const rigs: Rig[] = [
     category: "ci-cd",
     tags: ["github-actions", "claude", "automation", "incremental"],
     difficulty: "beginner",
+    repository: {
+      owner: "marshellis",
+      name: "ai-foundry",
+      branch: "main",
+      path: "rigs/igor",
+    },
+    installCommands: {
+      powershell:
+        "irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.ps1 | iex",
+      bash: "curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash",
+    },
     useCases: [
       "Migrate JS files to ES modules",
       "Add TypeScript types across a codebase",
@@ -20,7 +31,7 @@ export const rigs: Rig[] = [
     prerequisites: [
       {
         name: "GitHub Repository",
-        description: "A GitHub repo where you want Igor to work",
+        description: "A public or private GitHub repo where you want Igor to work",
       },
       {
         name: "Anthropic API Key",
@@ -29,31 +40,49 @@ export const rigs: Rig[] = [
       },
       {
         name: "GitHub CLI (gh)",
-        description: "Required for the automated setup script",
+        description: "Used by the installer to configure secrets, labels, and permissions",
         link: "https://cli.github.com/",
       },
     ],
     setupSteps: [
       {
-        title: "Run the setup script",
+        title: "Run the one-command installer",
         description:
-          "The setup script handles everything: copies the workflow file, creates labels, configures secrets, and sets permissions.",
-        command: "# PowerShell (Windows)\n.\\setup.ps1 -RepoOwner your-org -RepoName your-repo\n\n# Bash (macOS/Linux)\n./setup.sh --repo-owner your-org --repo-name your-repo",
+          "Open a terminal in your project directory and run the install command for your platform. The installer downloads the workflow, configures secrets, creates labels, and sets permissions -- all interactively.",
+        command:
+          "# PowerShell (Windows)\nirm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.ps1 | iex\n\n# Bash (macOS/Linux)\ncurl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash",
+      },
+      {
+        title: "Edit CLAUDE.md",
+        description:
+          "The installer creates a CLAUDE.md template in your repo. Fill it in with your project's structure, build commands, and coding conventions. This is how Igor understands your codebase -- the better the context, the better the results.",
+      },
+      {
+        title: "Commit and push",
+        description:
+          "Commit the workflow file, .igor/ directory, and CLAUDE.md, then push to your main branch.",
+        command:
+          'git add .github/workflows/claude-incremental.yml .igor/ CLAUDE.md\ngit commit -m "Add Igor incremental worker"\ngit push',
       },
       {
         title: "Create a tracking issue",
         description:
-          "Create a GitHub issue using the provided template. Add the 'claude-incremental' label and structure your tasks as a checklist.",
-      },
-      {
-        title: "Set status to In Progress",
-        description:
-          "When you're ready for Igor to start working, set the issue status. Igor runs daily at 2am UTC or can be triggered manually.",
+          "Create a GitHub issue with the 'claude-incremental' label using the checklist format. Igor picks up the first unchecked task and opens a PR. It runs daily at 2am UTC, or you can trigger it manually from the Actions tab.",
       },
     ],
     files: [
       {
-        name: "claude-incremental.yml",
+        name: "install.ps1",
+        description: "One-command installer for Windows (PowerShell)",
+        path: "rigs/igor/install.ps1",
+      },
+      {
+        name: "install.sh",
+        description: "One-command installer for macOS/Linux (Bash)",
+        path: "rigs/igor/install.sh",
+      },
+      {
+        name: "workflow.yml",
         description: "The GitHub Actions workflow that powers Igor",
         path: "rigs/igor/workflow.yml",
       },
@@ -61,16 +90,6 @@ export const rigs: Rig[] = [
         name: "issue-template.md",
         description: "Template for creating Igor tracking issues",
         path: "rigs/igor/issue-template.md",
-      },
-      {
-        name: "setup.ps1",
-        description: "Automated setup script for Windows (PowerShell)",
-        path: "rigs/igor/setup.ps1",
-      },
-      {
-        name: "setup.sh",
-        description: "Automated setup script for macOS/Linux (Bash)",
-        path: "rigs/igor/setup.sh",
       },
     ],
     sourceUrl:

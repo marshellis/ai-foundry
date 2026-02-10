@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 #
-# Automated setup script for the Igor rig (Incremental AI Worker).
+# Local setup script for the Igor rig.
 #
-# This script configures a GitHub repository to use Igor by:
-#   1. Verifying prerequisites (gh CLI, authentication)
-#   2. Copying the workflow file to .github/workflows/
-#   3. Creating the 'claude-incremental' label
-#   4. Setting the ANTHROPIC_API_KEY secret
-#   5. Configuring GitHub Actions permissions
-#   6. Creating a CLAUDE.md file if one doesn't exist
-#   7. Optionally creating a sample tracking issue
+# If you already have the rig files locally (e.g., you cloned ai-foundry),
+# this script sets up Igor in a target repository.
+#
+# For a one-command install that downloads everything automatically, use:
+#   curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash
 #
 # Usage:
-#   ./setup.sh --repo-owner myorg --repo-name myrepo [--api-key KEY] [--skip-issue]
+#   ./setup.sh [--repo-owner OWNER] [--repo-name NAME] [--api-key KEY] [--target-dir DIR] [--skip-issue]
+#
+# If owner/name are not provided, the script auto-detects from git remote.
 
 set -euo pipefail
 
@@ -26,12 +25,13 @@ NC='\033[0m'
 step()  { echo -e "\n${CYAN}--- $1${NC}"; }
 ok()    { echo -e "    ${GREEN}OK: $1${NC}"; }
 warn()  { echo -e "    ${YELLOW}WARN: $1${NC}"; }
-fail()  { echo -e "    ${RED}FAIL: $1${NC}"; }
+fail_msg() { echo -e "    ${RED}FAIL: $1${NC}"; }
 
 # Parse arguments
 REPO_OWNER=""
 REPO_NAME=""
 API_KEY=""
+TARGET_DIR=""
 SKIP_ISSUE=false
 
 while [[ $# -gt 0 ]]; do
@@ -39,75 +39,99 @@ while [[ $# -gt 0 ]]; do
         --repo-owner) REPO_OWNER="$2"; shift 2 ;;
         --repo-name)  REPO_NAME="$2"; shift 2 ;;
         --api-key)    API_KEY="$2"; shift 2 ;;
+        --target-dir) TARGET_DIR="$2"; shift 2 ;;
         --skip-issue) SKIP_ISSUE=true; shift ;;
         -h|--help)
-            echo "Usage: ./setup.sh --repo-owner OWNER --repo-name NAME [--api-key KEY] [--skip-issue]"
+            echo "Usage: ./setup.sh [--repo-owner OWNER] [--repo-name NAME] [--api-key KEY] [--target-dir DIR] [--skip-issue]"
             exit 0
             ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
-if [[ -z "$REPO_OWNER" || -z "$REPO_NAME" ]]; then
-    echo "Error: --repo-owner and --repo-name are required."
-    echo "Usage: ./setup.sh --repo-owner OWNER --repo-name NAME"
-    exit 1
-fi
+echo ""
+echo -e "${CYAN}========================================${NC}"
+echo -e "${CYAN}  Igor -- Local Setup${NC}"
+echo -e "${CYAN}========================================${NC}"
 
-REPO="$REPO_OWNER/$REPO_NAME"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # -------------------------------------------------------
 # Step 1: Check prerequisites
 # -------------------------------------------------------
 step "Checking prerequisites"
 
-if ! command -v gh &> /dev/null; then
-    fail "GitHub CLI (gh) is not installed."
-    echo "    Install it from: https://cli.github.com/"
-    exit 1
-fi
+command -v gh &> /dev/null || { fail_msg "GitHub CLI (gh) is not installed. Get it at https://cli.github.com/"; exit 1; }
 ok "GitHub CLI (gh) found"
 
-if ! gh auth status &> /dev/null; then
-    fail "Not authenticated with GitHub CLI."
-    echo "    Run: gh auth login"
-    exit 1
-fi
+gh auth status &> /dev/null || { fail_msg "Not authenticated with GitHub CLI. Run: gh auth login"; exit 1; }
 ok "Authenticated with GitHub"
 
-if ! gh repo view "$REPO" --json name &> /dev/null; then
-    fail "Repository $REPO not found or not accessible."
-    exit 1
+# -------------------------------------------------------
+# Step 2: Determine target repo
+# -------------------------------------------------------
+step "Determining target repository"
+
+DETECT_DIR="${TARGET_DIR:-.}"
+
+if [[ -z "$REPO_OWNER" || -z "$REPO_NAME" ]]; then
+    REMOTE_URL=$(cd "$DETECT_DIR" && git remote get-url origin 2>/dev/null || true)
+    if [[ -n "$REMOTE_URL" && "$REMOTE_URL" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
+        DETECTED_OWNER="${BASH_REMATCH[1]}"
+        DETECTED_NAME="${BASH_REMATCH[2]}"
+        echo -e "    ${YELLOW}Detected: $DETECTED_OWNER/$DETECTED_NAME${NC}"
+        read -rp "    Use this repository? (Y/n) " CONFIRM
+        if [[ ! "$CONFIRM" =~ ^[Nn]$ ]]; then
+            REPO_OWNER="$DETECTED_OWNER"
+            REPO_NAME="$DETECTED_NAME"
+        fi
+    fi
+
+    if [[ -z "$REPO_OWNER" ]]; then
+        read -rp "    Enter repository owner: " REPO_OWNER
+    fi
+    if [[ -z "$REPO_NAME" ]]; then
+        read -rp "    Enter repository name: " REPO_NAME
+    fi
 fi
-ok "Repository $REPO found"
+
+REPO="$REPO_OWNER/$REPO_NAME"
+
+gh repo view "$REPO" --json name &> /dev/null || { fail_msg "Repository $REPO not found or not accessible."; exit 1; }
+ok "Repository $REPO verified"
 
 # -------------------------------------------------------
-# Step 2: Copy workflow file
+# Step 3: Copy workflow file
 # -------------------------------------------------------
 step "Setting up workflow file"
 
-WORKFLOW_DIR=".github/workflows"
-WORKFLOW_FILE="$WORKFLOW_DIR/claude-incremental.yml"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_ROOT="${TARGET_DIR:-.}"
 SOURCE_WORKFLOW="$SCRIPT_DIR/workflow.yml"
-
-if ! git rev-parse --show-toplevel &> /dev/null; then
-    fail "Not inside a git repository. Run this script from your repo root."
-    exit 1
-fi
+WORKFLOW_DIR="$TARGET_ROOT/.github/workflows"
 
 mkdir -p "$WORKFLOW_DIR"
 
 if [[ -f "$SOURCE_WORKFLOW" ]]; then
-    cp "$SOURCE_WORKFLOW" "$WORKFLOW_FILE"
-    ok "Copied workflow to $WORKFLOW_FILE"
+    cp "$SOURCE_WORKFLOW" "$WORKFLOW_DIR/claude-incremental.yml"
+    ok "Copied workflow to $WORKFLOW_DIR/claude-incremental.yml"
 else
-    warn "Source workflow not found at $SOURCE_WORKFLOW"
-    echo "    You can manually copy the workflow from the AI Foundry rigs/igor/ directory."
+    fail_msg "Source workflow not found at $SOURCE_WORKFLOW"
+    echo "    For automatic download, use the install script instead:"
+    echo "    curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash"
+    exit 1
+fi
+
+# Copy issue template
+IGOR_DIR="$TARGET_ROOT/.igor"
+mkdir -p "$IGOR_DIR"
+SOURCE_TEMPLATE="$SCRIPT_DIR/issue-template.md"
+if [[ -f "$SOURCE_TEMPLATE" ]]; then
+    cp "$SOURCE_TEMPLATE" "$IGOR_DIR/issue-template.md"
+    ok "Copied issue template to .igor/issue-template.md"
 fi
 
 # -------------------------------------------------------
-# Step 3: Create label
+# Step 4: Create label
 # -------------------------------------------------------
 step "Creating 'claude-incremental' label"
 
@@ -123,13 +147,14 @@ else
 fi
 
 # -------------------------------------------------------
-# Step 4: Set ANTHROPIC_API_KEY secret
+# Step 5: Set ANTHROPIC_API_KEY secret
 # -------------------------------------------------------
 step "Configuring ANTHROPIC_API_KEY secret"
 
 if [[ -z "$API_KEY" ]]; then
     echo ""
     echo -e "    ${YELLOW}Enter your Anthropic API key (input is hidden):${NC}"
+    echo -e "    ${YELLOW}(press Enter to skip)${NC}"
     read -rs API_KEY
     echo ""
 fi
@@ -138,15 +163,14 @@ if [[ -n "$API_KEY" ]]; then
     if echo "$API_KEY" | gh secret set ANTHROPIC_API_KEY --repo "$REPO" 2>/dev/null; then
         ok "ANTHROPIC_API_KEY secret set"
     else
-        fail "Could not set secret. You may need admin access to the repository."
-        echo "    Set it manually: GitHub repo > Settings > Secrets > Actions > New repository secret"
+        warn "Could not set secret. Set it manually in GitHub Settings."
     fi
 else
-    warn "No API key provided. Set it manually in GitHub repo settings."
+    warn "Skipped. Set ANTHROPIC_API_KEY later in GitHub repo Settings > Secrets > Actions"
 fi
 
 # -------------------------------------------------------
-# Step 5: Configure Actions permissions
+# Step 6: Configure Actions permissions
 # -------------------------------------------------------
 step "Configuring GitHub Actions permissions"
 
@@ -161,16 +185,13 @@ else
 fi
 
 # -------------------------------------------------------
-# Step 6: Create CLAUDE.md if missing
+# Step 7: Create CLAUDE.md if missing
 # -------------------------------------------------------
 step "Checking for CLAUDE.md"
 
-if [[ ! -f "CLAUDE.md" ]]; then
-    warn "No CLAUDE.md found. Creating a basic one."
-    echo "    CLAUDE.md gives Claude context about your project."
-    echo "    Edit it to describe your project structure, conventions, and how to build/test."
-
-    cat > CLAUDE.md << 'TEMPLATE'
+CLAUDE_PATH="$TARGET_ROOT/CLAUDE.md"
+if [[ ! -f "$CLAUDE_PATH" ]]; then
+    cat > "$CLAUDE_PATH" << 'TEMPLATE'
 # Project Context for Claude
 
 ## Overview
@@ -192,10 +213,10 @@ else
 fi
 
 # -------------------------------------------------------
-# Step 7: Create sample issue (optional)
+# Step 8: Create sample issue (optional)
 # -------------------------------------------------------
 if [[ "$SKIP_ISSUE" != true ]]; then
-    step "Creating sample tracking issue"
+    step "Sample tracking issue"
 
     echo ""
     read -rp "    Create a sample Igor tracking issue? (y/N) " CREATE_ISSUE
@@ -221,10 +242,10 @@ Replace this with a real task description. Include file paths, expected behavior
         if [[ $? -eq 0 ]]; then
             ok "Created sample issue: $ISSUE_URL"
         else
-            warn "Could not create issue. Create one manually using the issue template."
+            warn "Could not create issue."
         fi
     else
-        ok "Skipped sample issue creation"
+        ok "Skipped."
     fi
 fi
 
@@ -237,9 +258,9 @@ echo -e "${GREEN}  Igor setup complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${CYAN}Next steps:${NC}"
-echo "  1. Review and edit CLAUDE.md to describe your project"
-echo "  2. Commit and push the workflow file and CLAUDE.md"
+echo "  1. Edit CLAUDE.md to describe your project"
+echo "  2. Commit and push the new files"
 echo "  3. Create tracking issues with the 'claude-incremental' label"
 echo "  4. Igor runs daily at 2am UTC, or trigger manually:"
-echo "     Actions > Igor > Run workflow"
+echo "     GitHub > Actions > Igor > Run workflow"
 echo ""

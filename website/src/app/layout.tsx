@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AI Foundry",
   description:
-    "Pre-built AI rigs for personal and coding tasks. Zero setup friction.",
+    "A place to share and test different AI setups. Browse rigs, install with one command, and try them in your own projects.",
 };
 
 export default function RootLayout({

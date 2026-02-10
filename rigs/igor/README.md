@@ -15,27 +15,43 @@ Igor runs daily at 2am UTC and can be triggered manually from the Actions tab.
 
 ## Setup
 
-### Automated (recommended)
+### One-command install (recommended)
 
-Run the setup script from your repository root:
+Open a terminal in your project directory and run:
 
 **Windows (PowerShell):**
 ```powershell
-.\setup.ps1 -RepoOwner your-org -RepoName your-repo
+irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.ps1 | iex
 ```
 
 **macOS/Linux:**
 ```bash
-./setup.sh --repo-owner your-org --repo-name your-repo
+curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash
 ```
 
-The script handles:
-- Copying the workflow file to `.github/workflows/`
-- Creating the `claude-incremental` label
-- Setting the `ANTHROPIC_API_KEY` secret
-- Configuring GitHub Actions permissions
-- Creating a `CLAUDE.md` template
-- Optionally creating a sample tracking issue
+The installer handles everything interactively:
+- Downloads the workflow file to `.github/workflows/`
+- Creates the `claude-incremental` label
+- Sets the `ANTHROPIC_API_KEY` secret
+- Configures GitHub Actions permissions
+- Creates a `CLAUDE.md` template
+- Optionally creates a sample tracking issue
+
+After the installer finishes, commit and push the new files.
+
+### Local setup (if you cloned this repo)
+
+If you already have the rig files locally:
+
+**Windows (PowerShell):**
+```powershell
+.\setup.ps1
+```
+
+**macOS/Linux:**
+```bash
+./setup.sh
+```
 
 ### Manual
 
@@ -45,6 +61,12 @@ The script handles:
 4. Set Actions permissions to "Read and write" (Settings > Actions > General)
 5. Check "Allow GitHub Actions to create and approve pull requests"
 6. Create a `CLAUDE.md` at your repo root describing your project
+
+### Hosting your own fork
+
+Igor is a package -- you can fork it and host it in your own repo. Just update the
+`RIG_BASE_URL` / `$RigBaseUrl` in the install scripts to point to your fork. Anyone
+can then install from your repo using the same one-liner pattern.
 
 ## Issue Format
 
@@ -82,11 +104,13 @@ More context here.
 
 | File | Description |
 |------|-------------|
+| `install.ps1` | One-command installer for Windows (PowerShell) |
+| `install.sh` | One-command installer for macOS/Linux (Bash) |
+| `setup.ps1` | Local setup script for Windows (if you have files locally) |
+| `setup.sh` | Local setup script for macOS/Linux (if you have files locally) |
 | `workflow.yml` | The GitHub Actions workflow to copy into your repo |
 | `issue-template.md` | Template for creating tracking issues |
-| `setup.ps1` | Automated setup script for Windows (PowerShell) |
-| `setup.sh` | Automated setup script for macOS/Linux (Bash) |
-| `config.json` | Rig metadata |
+| `config.json` | Rig metadata and package info |
 
 ## Credits
 

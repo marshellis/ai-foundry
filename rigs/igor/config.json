@@ -7,5 +7,15 @@
   "tags": ["github-actions", "claude", "automation", "incremental"],
   "difficulty": "beginner",
   "status": "ready",
+  "repository": {
+    "owner": "marshellis",
+    "name": "ai-foundry",
+    "branch": "main",
+    "path": "rigs/igor"
+  },
+  "install": {
+    "powershell": "irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.ps1 | iex",
+    "bash": "curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash"
+  },
   "source": "https://developers.openchatstudio.com/developer_guides/igor/"
 }

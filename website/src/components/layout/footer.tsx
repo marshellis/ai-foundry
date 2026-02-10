@@ -5,7 +5,7 @@ export function Footer() {
     <footer className="border-t">
       <div className="container mx-auto flex flex-col items-center gap-4 px-4 py-8 sm:px-8 md:flex-row md:justify-between">
         <p className="text-sm text-muted-foreground">
-          AI Foundry -- Pre-built AI rigs, zero setup friction.
+          AI Foundry -- A place to share and test different AI setups.
         </p>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <a

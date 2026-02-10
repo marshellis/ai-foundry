@@ -20,6 +20,24 @@ export interface RigFile {
   path: string;
 }
 
+export interface RigRepository {
+  /** GitHub owner (user or org) */
+  owner: string;
+  /** GitHub repository name */
+  name: string;
+  /** Branch to fetch from (default: main) */
+  branch?: string;
+  /** Path within the repo where the rig lives */
+  path: string;
+}
+
+export interface RigInstallCommands {
+  /** One-liner for PowerShell (Windows) */
+  powershell: string;
+  /** One-liner for bash (macOS/Linux) */
+  bash: string;
+}
+
 export interface Rig {
   slug: string;
   name: string;
@@ -33,6 +51,10 @@ export interface Rig {
   prerequisites: RigPrerequisite[];
   setupSteps: RigSetupStep[];
   files: RigFile[];
+  /** Where the rig is hosted -- enables package-like referencing from any public GitHub repo */
+  repository?: RigRepository;
+  /** One-command install strings for each platform */
+  installCommands?: RigInstallCommands;
   sourceUrl?: string;
   docsUrl?: string;
 }

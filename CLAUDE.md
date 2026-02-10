@@ -2,7 +2,7 @@
 
 ## Overview
 
-AI Foundry is a website and collection of "rigs" -- pre-built AI-powered workflows for personal and coding tasks. The core value proposition is eliminating setup friction. Users browse rigs on the website, then use automated setup scripts to get them running.
+AI Foundry is a website and collection of "rigs" -- pre-packaged AI workflows for coding and personal tasks. It is a place to share and test different AI setups. The hardest part of trying new AI workflows is usually the configuration, so each rig comes with a one-command installer. Rigs are hosted as packages on public GitHub repos -- they can live in the ai-foundry catalog or in anyone's own repo.
 
 ## Directory Structure
 
@@ -86,6 +86,15 @@ npm run lint
 
 ## Adding a New Rig
 
-1. Create a directory under `rigs/<rig-name>/` with config.json, README.md, and any template files
-2. Add the rig to the registry in `website/src/lib/rigs/registry.ts`
-3. The rig will automatically appear on the website catalog and detail pages
+### Hosted in this repo
+1. Create a directory under `rigs/<rig-name>/` with config.json, README.md, install.ps1, install.sh, and any template files
+2. The install scripts should be self-contained: download rig files from GitHub raw URLs and run setup interactively
+3. Add the rig to the registry in `website/src/lib/rigs/registry.ts` with a `repository` and `installCommands` field
+4. The rig will automatically appear on the website catalog and detail pages
+
+### Hosted externally
+Rigs can also live in any public GitHub repo. As long as the repo has an install.ps1/install.sh at a known path, users can install via:
+  - PowerShell: `irm https://raw.githubusercontent.com/OWNER/REPO/BRANCH/PATH/install.ps1 | iex`
+  - Bash: `curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/BRANCH/PATH/install.sh | bash`
+
+External rigs can be added to the website registry by pointing the `repository` field to the external repo.
