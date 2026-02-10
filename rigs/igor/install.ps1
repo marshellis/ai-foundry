@@ -24,6 +24,9 @@
 
 $ErrorActionPreference = "Stop"
 
+# Version number -- increment this when making changes
+$ScriptVersion = "1.1.0"
+
 function Write-Step {
     param([string]$Message)
     Write-Host ""
@@ -48,7 +51,7 @@ function Write-Fail {
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Igor -- Incremental AI Worker" -ForegroundColor Cyan
-Write-Host "  One-command installer" -ForegroundColor Cyan
+Write-Host "  One-command installer v$ScriptVersion" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # -------------------------------------------------------

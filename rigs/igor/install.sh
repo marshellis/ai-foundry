@@ -18,6 +18,9 @@
 
 set -euo pipefail
 
+# Version number -- increment this when making changes
+SCRIPT_VERSION="1.1.0"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -34,7 +37,7 @@ fail()  { echo -e "    ${RED}FAIL: $1${NC}"; exit 1; }
 echo ""
 echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}  Igor -- Incremental AI Worker${NC}"
-echo -e "${CYAN}  One-command installer${NC}"
+echo -e "${CYAN}  One-command installer v${SCRIPT_VERSION}${NC}"
 echo -e "${CYAN}========================================${NC}"
 
 # -------------------------------------------------------
