@@ -22,6 +22,81 @@ export const rigs: Rig[] = [
         "irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.ps1 | iex",
       bash: "curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash",
     },
+    installerActions: [
+      {
+        label: "Check prerequisites",
+        detail:
+          "Verifies that git and the GitHub CLI (gh) are installed and that you are authenticated with gh.",
+      },
+      {
+        label: "Detect target repository",
+        detail:
+          "Reads your git remote to detect the GitHub repo, or prompts you to enter one. Verifies the repo exists and is accessible.",
+      },
+      {
+        label: "Download workflow file",
+        detail:
+          "Downloads claude-incremental.yml from the rig source and places it at .github/workflows/claude-incremental.yml in your repo. This is the GitHub Action that runs Igor.",
+      },
+      {
+        label: "Download issue template",
+        detail:
+          "Downloads a reference issue template to .igor/issue-template.md so you have the checklist format handy when creating tracking issues.",
+      },
+      {
+        label: "Set ANTHROPIC_API_KEY secret",
+        detail:
+          "Prompts for your Anthropic API key and stores it as a GitHub Actions secret using the gh CLI. You can skip this and set it manually later. The key is sent directly to GitHub -- it is not stored locally.",
+      },
+      {
+        label: "Create 'claude-incremental' label",
+        detail:
+          "Creates a GitHub label called 'claude-incremental' on your repo. Igor uses this label to find tracking issues to work on.",
+      },
+      {
+        label: "Configure Actions permissions",
+        detail:
+          "Uses the GitHub API to set workflow permissions to read-write and allow GitHub Actions to create pull requests. This is required for Igor to push branches and open PRs.",
+      },
+      {
+        label: "Optionally create a sample issue",
+        detail:
+          "Asks if you want to create a sample tracking issue with the correct format so you can see how Igor works right away.",
+      },
+    ],
+    whatItDoes:
+      "Once installed, Igor monitors your GitHub repository for issues labeled 'claude-incremental'. Each issue should contain a checklist of tasks. Every day at 2 AM UTC (or when triggered manually), Igor picks the next unchecked task, reads your codebase for context, implements the change on a new branch, opens a pull request, and checks off the task. You review and merge the PR like any other contribution. Over time, Igor chips away at large projects one task at a time.",
+    verificationSteps: [
+      {
+        instruction:
+          "Go to your repo's Actions tab on GitHub and confirm the 'Igor' workflow is listed",
+        expectedResult:
+          "You should see 'Igor' (or 'claude-incremental') in the left sidebar of the Actions page. If it does not appear, make sure you committed and pushed the workflow file.",
+      },
+      {
+        instruction:
+          "Create a test issue with the 'claude-incremental' label and a simple one-item checklist",
+        expectedResult:
+          "The issue should appear in your repo with the label. Use the format: '- [ ] Add a comment to the top of README.md' as a simple test task.",
+      },
+      {
+        instruction:
+          "Trigger the workflow manually: Actions > Igor > Run workflow",
+        expectedResult:
+          "The workflow run should appear in the Actions tab. Click into it to watch the logs in real time.",
+      },
+      {
+        instruction:
+          "Wait for the workflow to complete and check for a new pull request",
+        expectedResult:
+          "Igor should create a new branch, push a commit implementing the task, and open a pull request. The checklist item in the tracking issue should be checked off automatically.",
+      },
+      {
+        instruction: "Review the pull request",
+        expectedResult:
+          "The PR should contain a focused change matching the task description. If everything looks good, merge it. Igor will pick up the next unchecked task on the next run.",
+      },
+    ],
     useCases: [
       "Migrate JS files to ES modules",
       "Add TypeScript types across a codebase",
@@ -31,7 +106,8 @@ export const rigs: Rig[] = [
     prerequisites: [
       {
         name: "GitHub Repository",
-        description: "A public or private GitHub repo where you want Igor to work",
+        description:
+          "A public or private GitHub repo where you want Igor to work",
       },
       {
         name: "Anthropic API Key",
@@ -40,7 +116,8 @@ export const rigs: Rig[] = [
       },
       {
         name: "GitHub CLI (gh)",
-        description: "Used by the installer to configure secrets, labels, and permissions",
+        description:
+          "Used by the installer to configure secrets, labels, and permissions",
         link: "https://cli.github.com/",
       },
     ],
@@ -48,21 +125,16 @@ export const rigs: Rig[] = [
       {
         title: "Run the one-command installer",
         description:
-          "Open a terminal in your project directory and run the install command for your platform. The installer downloads the workflow, configures secrets, creates labels, and sets permissions -- all interactively.",
+          "Open a terminal in your project directory and run the install command for your platform. The installer walks you through each step interactively.",
         command:
           "# PowerShell (Windows)\nirm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.ps1 | iex\n\n# Bash (macOS/Linux)\ncurl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash",
       },
       {
-        title: "Edit CLAUDE.md",
-        description:
-          "The installer creates a CLAUDE.md template in your repo. Fill it in with your project's structure, build commands, and coding conventions. This is how Igor understands your codebase -- the better the context, the better the results.",
-      },
-      {
         title: "Commit and push",
         description:
-          "Commit the workflow file, .igor/ directory, and CLAUDE.md, then push to your main branch.",
+          "Commit the workflow file and .igor/ directory, then push to your main branch.",
         command:
-          'git add .github/workflows/claude-incremental.yml .igor/ CLAUDE.md\ngit commit -m "Add Igor incremental worker"\ngit push',
+          'git add .github/workflows/claude-incremental.yml .igor/\ngit commit -m "Add Igor incremental worker"\ngit push',
       },
       {
         title: "Create a tracking issue",

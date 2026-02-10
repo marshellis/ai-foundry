@@ -227,35 +227,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # -------------------------------------------------------
-# Step 7: Create CLAUDE.md if missing
-# -------------------------------------------------------
-Write-Step "Checking for CLAUDE.md"
-
-$claudePath = Join-Path $targetRoot "CLAUDE.md"
-if (-not (Test-Path $claudePath)) {
-    @"
-# Project Context for Claude
-
-## Overview
-<!-- Describe your project here -->
-
-## Directory Structure
-<!-- Describe your directory layout -->
-
-## Development
-<!-- How to install, build, test, and lint -->
-
-## Conventions
-<!-- Code style, naming conventions, patterns to follow -->
-"@ | Set-Content $claudePath -Encoding UTF8
-
-    Write-Ok "Created CLAUDE.md template -- edit it to describe your project"
-} else {
-    Write-Ok "CLAUDE.md already exists"
-}
-
-# -------------------------------------------------------
-# Step 8: Create sample issue (optional)
+# Step 7: Create sample issue (optional)
 # -------------------------------------------------------
 if (-not $SkipIssue) {
     Write-Step "Sample tracking issue"
@@ -302,9 +274,8 @@ Write-Host "  Igor setup complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Edit CLAUDE.md to describe your project"
-Write-Host "  2. Commit and push the new files"
-Write-Host "  3. Create tracking issues with the 'claude-incremental' label"
-Write-Host "  4. Igor runs daily at 2am UTC, or trigger manually:"
+Write-Host "  1. Commit and push the new files"
+Write-Host "  2. Create tracking issues with the 'claude-incremental' label"
+Write-Host "  3. Igor runs daily at 2am UTC, or trigger manually:"
 Write-Host "     GitHub > Actions > Igor > Run workflow"
 Write-Host ""

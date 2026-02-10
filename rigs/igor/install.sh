@@ -10,7 +10,7 @@
 #
 # The script will:
 #   1. Detect your current git repo (or prompt for one)
-#   2. Download the workflow file, issue template, and CLAUDE.md template
+#   2. Download the workflow file and issue template
 #   3. Configure GitHub secrets, labels, and Actions permissions
 #   4. Optionally create a sample tracking issue
 #
@@ -186,36 +186,7 @@ else
 fi
 
 # -------------------------------------------------------
-# Step 7: Create CLAUDE.md if missing
-# -------------------------------------------------------
-step "Checking for CLAUDE.md"
-
-if [[ ! -f "CLAUDE.md" ]]; then
-    cat > CLAUDE.md << 'TEMPLATE'
-# Project Context for Claude
-
-## Overview
-<!-- Describe your project here -->
-
-## Directory Structure
-<!-- Describe your directory layout -->
-
-## Development
-<!-- How to install, build, test, and lint -->
-
-## Conventions
-<!-- Code style, naming conventions, patterns to follow -->
-TEMPLATE
-
-    ok "Created CLAUDE.md template"
-    echo -e "    ${YELLOW}IMPORTANT: Edit CLAUDE.md to describe your project.${NC}"
-    echo -e "    ${YELLOW}The better the context, the better Igor's work will be.${NC}"
-else
-    ok "CLAUDE.md already exists"
-fi
-
-# -------------------------------------------------------
-# Step 8: Create sample issue (optional)
+# Step 7: Create sample issue (optional)
 # -------------------------------------------------------
 step "Sample tracking issue"
 
@@ -260,15 +231,19 @@ echo ""
 echo -e "${CYAN}Files added:${NC}"
 echo "  .github/workflows/claude-incremental.yml  (the workflow)"
 echo "  .igor/issue-template.md                   (reference template)"
-[[ -f "CLAUDE.md" ]] && echo "  CLAUDE.md                                 (project context)"
 echo ""
 echo -e "${CYAN}Next steps:${NC}"
-echo "  1. Edit CLAUDE.md to describe your project (this is important!)"
-echo "  2. Commit and push the new files:"
-echo "     git add .github/workflows/claude-incremental.yml .igor/ CLAUDE.md"
+echo "  1. Commit and push the new files:"
+echo "     git add .github/workflows/claude-incremental.yml .igor/"
 echo "     git commit -m 'Add Igor incremental worker'"
 echo "     git push"
-echo "  3. Create tracking issues with the 'claude-incremental' label"
-echo "  4. Igor runs daily at 2am UTC, or trigger manually:"
+echo "  2. Create tracking issues with the 'claude-incremental' label"
+echo "  3. Igor runs daily at 2am UTC, or trigger manually:"
 echo "     GitHub > Actions > Igor > Run workflow"
+echo ""
+echo -e "${CYAN}To verify it works:${NC}"
+echo "  1. Go to GitHub > Actions and confirm the 'Igor' workflow appears"
+echo "  2. Create a tracking issue with a simple task"
+echo "  3. Trigger the workflow manually: Actions > Igor > Run workflow"
+echo "  4. Check that Igor creates a branch, opens a PR, and checks off the task"
 echo ""

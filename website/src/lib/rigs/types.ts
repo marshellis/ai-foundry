@@ -17,6 +17,7 @@ export interface RigSetupStep {
 export interface RigFile {
   name: string;
   description: string;
+  /** Relative path within the rig source repo */
   path: string;
 }
 
@@ -38,6 +39,22 @@ export interface RigInstallCommands {
   bash: string;
 }
 
+/** A single action the installer performs, shown to users for transparency */
+export interface InstallerAction {
+  /** Short label, e.g. "Download workflow file" */
+  label: string;
+  /** Longer explanation of what this step does and why */
+  detail: string;
+}
+
+/** A step the user can follow to verify the rig is working correctly */
+export interface VerificationStep {
+  /** Short instruction, e.g. "Check the Actions tab" */
+  instruction: string;
+  /** What the user should see if it's working */
+  expectedResult: string;
+}
+
 export interface Rig {
   slug: string;
   name: string;
@@ -55,6 +72,12 @@ export interface Rig {
   repository?: RigRepository;
   /** One-command install strings for each platform */
   installCommands?: RigInstallCommands;
+  /** Exactly what the installer script does, step by step, for transparency */
+  installerActions?: InstallerAction[];
+  /** Plain-language summary of what this rig does once installed */
+  whatItDoes?: string;
+  /** Steps users can follow to confirm the rig is working as designed */
+  verificationSteps?: VerificationStep[];
   sourceUrl?: string;
   docsUrl?: string;
 }

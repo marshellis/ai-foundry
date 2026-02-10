@@ -34,7 +34,6 @@ The installer handles everything interactively:
 - Creates the `claude-incremental` label
 - Sets the `ANTHROPIC_API_KEY` secret
 - Configures GitHub Actions permissions
-- Creates a `CLAUDE.md` template
 - Optionally creates a sample tracking issue
 
 After the installer finishes, commit and push the new files.
@@ -60,13 +59,32 @@ If you already have the rig files locally:
 3. Add `ANTHROPIC_API_KEY` as a repository secret (Settings > Secrets > Actions)
 4. Set Actions permissions to "Read and write" (Settings > Actions > General)
 5. Check "Allow GitHub Actions to create and approve pull requests"
-6. Create a `CLAUDE.md` at your repo root describing your project
 
 ### Hosting your own fork
 
 Igor is a package -- you can fork it and host it in your own repo. Just update the
 `RIG_BASE_URL` / `$RigBaseUrl` in the install scripts to point to your fork. Anyone
 can then install from your repo using the same one-liner pattern.
+
+## Verifying It Works
+
+After installation, follow these steps to confirm Igor is working:
+
+1. **Check the Actions tab** -- Go to your repo on GitHub, click "Actions" in the top nav. You should see "Igor" (or "claude-incremental") listed in the left sidebar. If it does not appear, make sure you committed and pushed the workflow file.
+
+2. **Create a test issue** -- Create a new issue with the `claude-incremental` label and a simple one-item checklist, e.g.:
+   ```
+   ## Tasks
+   ### Task 1: Add a comment to README
+   - [ ] Task 1
+   Add a comment to the top of README.md saying "Igor was here".
+   ```
+
+3. **Trigger the workflow manually** -- Go to Actions > Igor > "Run workflow" and click the green button. Watch the logs in real time.
+
+4. **Check for a pull request** -- When the workflow completes, Igor should have created a new branch, pushed a commit, and opened a PR. The checklist item in the tracking issue should be checked off.
+
+5. **Review the PR** -- The PR should contain a focused change matching the task. Merge it if it looks good. Igor will pick up the next unchecked task on the next run.
 
 ## Issue Format
 

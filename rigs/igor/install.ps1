@@ -14,7 +14,7 @@
 
     The script will:
     1. Detect your current git repo (or prompt for one)
-    2. Download the workflow file, issue template, and CLAUDE.md template
+    2. Download the workflow file and issue template
     3. Configure GitHub secrets, labels, and Actions permissions
     4. Optionally create a sample tracking issue
 
@@ -243,36 +243,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # -------------------------------------------------------
-# Step 7: Create CLAUDE.md if missing
-# -------------------------------------------------------
-Write-Step "Checking for CLAUDE.md"
-
-if (-not (Test-Path "CLAUDE.md")) {
-    @"
-# Project Context for Claude
-
-## Overview
-<!-- Describe your project here -->
-
-## Directory Structure
-<!-- Describe your directory layout -->
-
-## Development
-<!-- How to install, build, test, and lint -->
-
-## Conventions
-<!-- Code style, naming conventions, patterns to follow -->
-"@ | Set-Content "CLAUDE.md" -Encoding UTF8
-
-    Write-Ok "Created CLAUDE.md template"
-    Write-Host "    IMPORTANT: Edit CLAUDE.md to describe your project." -ForegroundColor Yellow
-    Write-Host "    The better the context, the better Igor's work will be." -ForegroundColor Yellow
-} else {
-    Write-Ok "CLAUDE.md already exists"
-}
-
-# -------------------------------------------------------
-# Step 8: Create sample issue (optional)
+# Step 7: Create sample issue (optional)
 # -------------------------------------------------------
 Write-Step "Sample tracking issue"
 
@@ -319,17 +290,19 @@ Write-Host ""
 Write-Host "Files added:" -ForegroundColor Cyan
 Write-Host "  .github/workflows/claude-incremental.yml  (the workflow)"
 Write-Host "  .igor/issue-template.md                   (reference template)"
-if (-not (Test-Path "CLAUDE.md")) {} else {
-    Write-Host "  CLAUDE.md                                 (project context)"
-}
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Edit CLAUDE.md to describe your project (this is important!)"
-Write-Host "  2. Commit and push the new files:"
-Write-Host "     git add .github/workflows/claude-incremental.yml .igor/ CLAUDE.md"
+Write-Host "  1. Commit and push the new files:"
+Write-Host "     git add .github/workflows/claude-incremental.yml .igor/"
 Write-Host "     git commit -m 'Add Igor incremental worker'"
 Write-Host "     git push"
-Write-Host "  3. Create tracking issues with the 'claude-incremental' label"
-Write-Host "  4. Igor runs daily at 2am UTC, or trigger manually:"
+Write-Host "  2. Create tracking issues with the 'claude-incremental' label"
+Write-Host "  3. Igor runs daily at 2am UTC, or trigger manually:"
 Write-Host "     GitHub > Actions > Igor > Run workflow"
+Write-Host ""
+Write-Host "To verify it works:" -ForegroundColor Cyan
+Write-Host "  1. Go to GitHub > Actions and confirm the 'Igor' workflow appears"
+Write-Host "  2. Create a tracking issue with a simple task"
+Write-Host "  3. Trigger the workflow manually: Actions > Igor > Run workflow"
+Write-Host "  4. Check that Igor creates a branch, opens a PR, and checks off the task"
 Write-Host ""

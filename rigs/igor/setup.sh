@@ -185,35 +185,7 @@ else
 fi
 
 # -------------------------------------------------------
-# Step 7: Create CLAUDE.md if missing
-# -------------------------------------------------------
-step "Checking for CLAUDE.md"
-
-CLAUDE_PATH="$TARGET_ROOT/CLAUDE.md"
-if [[ ! -f "$CLAUDE_PATH" ]]; then
-    cat > "$CLAUDE_PATH" << 'TEMPLATE'
-# Project Context for Claude
-
-## Overview
-<!-- Describe your project here -->
-
-## Directory Structure
-<!-- Describe your directory layout -->
-
-## Development
-<!-- How to install, build, test, and lint -->
-
-## Conventions
-<!-- Code style, naming conventions, patterns to follow -->
-TEMPLATE
-
-    ok "Created CLAUDE.md template -- edit it to describe your project"
-else
-    ok "CLAUDE.md already exists"
-fi
-
-# -------------------------------------------------------
-# Step 8: Create sample issue (optional)
+# Step 7: Create sample issue (optional)
 # -------------------------------------------------------
 if [[ "$SKIP_ISSUE" != true ]]; then
     step "Sample tracking issue"
@@ -258,9 +230,8 @@ echo -e "${GREEN}  Igor setup complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${CYAN}Next steps:${NC}"
-echo "  1. Edit CLAUDE.md to describe your project"
-echo "  2. Commit and push the new files"
-echo "  3. Create tracking issues with the 'claude-incremental' label"
-echo "  4. Igor runs daily at 2am UTC, or trigger manually:"
+echo "  1. Commit and push the new files"
+echo "  2. Create tracking issues with the 'claude-incremental' label"
+echo "  3. Igor runs daily at 2am UTC, or trigger manually:"
 echo "     GitHub > Actions > Igor > Run workflow"
 echo ""

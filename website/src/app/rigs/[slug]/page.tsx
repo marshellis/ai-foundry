@@ -29,6 +29,22 @@ export async function generateMetadata({
   };
 }
 
+function getFileGitHubUrl(
+  repo: { owner: string; name: string; branch?: string; path: string },
+  filePath: string
+) {
+  const branch = repo.branch ?? "main";
+  return `https://github.com/${repo.owner}/${repo.name}/blob/${branch}/${filePath}`;
+}
+
+function getRawFileUrl(
+  repo: { owner: string; name: string; branch?: string },
+  filePath: string
+) {
+  const branch = repo.branch ?? "main";
+  return `https://raw.githubusercontent.com/${repo.owner}/${repo.name}/${branch}/${filePath}`;
+}
+
 export default async function RigDetailPage({
   params,
 }: {
@@ -79,8 +95,8 @@ export default async function RigDetailPage({
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Quick Install</CardTitle>
             <CardDescription>
-              Run one command in your project directory to install {rig.name}.
-              The script handles everything interactively.
+              Run one command in your project directory. The script walks you
+              through each step interactively.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -100,20 +116,132 @@ export default async function RigDetailPage({
                 <code>{rig.installCommands.bash}</code>
               </pre>
             </div>
-            {repoUrl && (
-              <p className="text-xs text-muted-foreground pt-1">
-                Hosted at{" "}
-                <a
-                  href={repoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-mono"
-                >
-                  {rig.repository!.owner}/{rig.repository!.name}
-                </a>
-                {" -- "}or point to your own fork.
-              </p>
-            )}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+              {repoUrl && (
+                <span>
+                  Hosted at{" "}
+                  <a
+                    href={repoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-mono"
+                  >
+                    {rig.repository!.owner}/{rig.repository!.name}
+                  </a>
+                </span>
+              )}
+              {rig.repository && (
+                <>
+                  <a
+                    href={getFileGitHubUrl(rig.repository, `${rig.repository.path}/install.ps1`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    View install.ps1 source
+                  </a>
+                  <a
+                    href={getFileGitHubUrl(rig.repository, `${rig.repository.path}/install.sh`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    View install.sh source
+                  </a>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* What the installer does */}
+      {rig.installerActions && rig.installerActions.length > 0 && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              What the installer does
+            </CardTitle>
+            <CardDescription>
+              Exactly what happens when you run the install command, step by
+              step. Nothing hidden.
+              {rig.repository && (
+                <>
+                  {" "}
+                  <a
+                    href={repoUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Read the full source on GitHub.
+                  </a>
+                </>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-4">
+              {rig.installerActions.map((action, index) => (
+                <li key={action.label} className="flex gap-3">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="font-medium text-sm">{action.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {action.detail}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* What this rig does */}
+      {rig.whatItDoes && (
+        <Card className="mb-8 border-blue-500/20 bg-blue-500/5">
+          <CardHeader>
+            <CardTitle className="text-lg">What this rig does</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {rig.whatItDoes}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* How to verify it works */}
+      {rig.verificationSteps && rig.verificationSteps.length > 0 && (
+        <Card className="mb-8 border-green-500/20 bg-green-500/5">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              How to verify it works
+            </CardTitle>
+            <CardDescription>
+              Follow these steps after installation to confirm the rig is
+              working as designed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-4">
+              {rig.verificationSteps.map((step, index) => (
+                <li key={step.instruction} className="flex gap-3">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-green-500/20 text-xs font-medium text-green-700 dark:text-green-400">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="font-medium text-sm">{step.instruction}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Expected: {step.expectedResult}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </CardContent>
         </Card>
       )}
@@ -205,6 +333,42 @@ export default async function RigDetailPage({
             </CardContent>
           </Card>
 
+          {/* Files -- with links to GitHub source */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Files</CardTitle>
+              <CardDescription>
+                Included in this rig -- click to view source
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {rig.files.map((file) => {
+                const fileUrl = rig.repository
+                  ? getFileGitHubUrl(rig.repository, file.path)
+                  : null;
+                return (
+                  <div key={file.name}>
+                    {fileUrl ? (
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-sm text-primary hover:underline"
+                      >
+                        {file.name}
+                      </a>
+                    ) : (
+                      <p className="font-mono text-sm">{file.name}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {file.description}
+                    </p>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
           {/* Package Info */}
           {rig.repository && (
             <Card>
@@ -245,24 +409,6 @@ export default async function RigDetailPage({
               </CardContent>
             </Card>
           )}
-
-          {/* Files */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Files</CardTitle>
-              <CardDescription>Included in this rig</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {rig.files.map((file) => (
-                <div key={file.name}>
-                  <p className="font-mono text-sm">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {file.description}
-                  </p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
 
           {/* Links */}
           <div className="flex flex-col gap-2">
