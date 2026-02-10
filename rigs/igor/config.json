@@ -1,0 +1,11 @@
+{
+  "name": "Igor",
+  "slug": "igor",
+  "version": "1.0.0",
+  "description": "A GitHub Action that automatically makes incremental progress on large projects by working through tracking issues with task checklists.",
+  "category": "ci-cd",
+  "tags": ["github-actions", "claude", "automation", "incremental"],
+  "difficulty": "beginner",
+  "status": "ready",
+  "source": "https://developers.openchatstudio.com/developer_guides/igor/"
+}
