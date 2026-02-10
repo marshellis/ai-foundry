@@ -29,11 +29,13 @@ ai-foundry/
   rigs/                        # Rig definitions (portable, may split to own repo)
     igor/                      # Igor rig files
       config.json              # Rig metadata
-      workflow.yml             # GitHub Actions workflow template
-      issue-template.md        # Issue template for users
-      setup.ps1                # Windows setup script
-      setup.sh                 # macOS/Linux setup script
+      install.ps1              # One-command installer (PowerShell)
+      install.sh               # One-command installer (Bash)
+      setup.ps1                # Local setup script (PowerShell)
+      setup.sh                 # Local setup script (Bash)
+      issue-template.md        # Issue template (sourced from Open Chat Studio docs)
       README.md                # Rig documentation
+      # NOTE: workflow.yml is NOT bundled -- downloaded from upstream at install time
   CLAUDE.md                    # This file - project context for Claude
   README.md                    # Project README
 ```
@@ -86,11 +88,18 @@ npm run lint
 
 ## Adding a New Rig
 
-### Hosted in this repo
-1. Create a directory under `rigs/<rig-name>/` with config.json, README.md, install.ps1, install.sh, and any template files
-2. The install scripts should be self-contained: download rig files from GitHub raw URLs and run setup interactively
-3. Add the rig to the registry in `website/src/lib/rigs/registry.ts` with a `repository` and `installCommands` field
-4. The rig will automatically appear on the website catalog and detail pages
+Rigs are thin orchestration layers -- they document setup, fill gaps (installer scripts, verification steps), and wire things together, but point to the original author's files wherever possible. Do NOT bundle upstream files; reference them via URL so they stay current.
+
+### Rig structure
+1. Create a directory under `rigs/<rig-name>/` with: config.json, README.md, install.ps1, install.sh, and any template files you authored
+2. For files maintained by the original author (e.g., workflow files, configs), download them from upstream at install time rather than bundling copies
+3. The install scripts should be self-contained: download upstream files, download rig-authored files, and run setup interactively
+4. Add the rig to the registry in `website/src/lib/rigs/registry.ts` -- use `upstreamUrl` for external files and `path` for files we author
+5. Every rig must have `whatItDoes` (plain-language summary), `verificationSteps` (how to confirm it works), and `installerActions` (transparency about what the installer does)
+
+### File sourcing rules
+- **Upstream** (`upstreamUrl`): If someone else wrote it and maintains it, reference it. The installer downloads it at install time.
+- **Ours** (`path`): If we wrote it to fill a gap (installer, template, docs), it lives in our repo.
 
 ### Hosted externally
 Rigs can also live in any public GitHub repo. As long as the repo has an install.ps1/install.sh at a known path, users can install via:

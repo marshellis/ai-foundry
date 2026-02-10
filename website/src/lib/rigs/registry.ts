@@ -34,14 +34,14 @@ export const rigs: Rig[] = [
           "Reads your git remote to detect the GitHub repo, or prompts you to enter one. Verifies the repo exists and is accessible.",
       },
       {
-        label: "Download workflow file",
+        label: "Download workflow file from upstream",
         detail:
-          "Downloads claude-incremental.yml from the rig source and places it at .github/workflows/claude-incremental.yml in your repo. This is the GitHub Action that runs Igor.",
+          "Downloads claude-incremental.yml directly from the original author (dimagi/open-chat-studio) and places it at .github/workflows/claude-incremental.yml. This keeps the workflow up to date with upstream improvements.",
       },
       {
         label: "Download issue template",
         detail:
-          "Downloads a reference issue template to .igor/issue-template.md so you have the checklist format handy when creating tracking issues.",
+          "Downloads a reference issue template (based on the Open Chat Studio docs) to .igor/issue-template.md so you have the checklist format handy when creating tracking issues.",
       },
       {
         label: "Set ANTHROPIC_API_KEY secret",
@@ -154,14 +154,19 @@ export const rigs: Rig[] = [
         path: "rigs/igor/install.sh",
       },
       {
-        name: "workflow.yml",
-        description: "The GitHub Actions workflow that powers Igor",
-        path: "rigs/igor/workflow.yml",
+        name: "claude-incremental.yml",
+        description:
+          "The GitHub Actions workflow that powers Igor (from dimagi/open-chat-studio)",
+        upstreamUrl:
+          "https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml",
+        installPath: ".github/workflows/claude-incremental.yml",
       },
       {
         name: "issue-template.md",
-        description: "Template for creating Igor tracking issues",
+        description:
+          "Template for creating tracking issues (format from Open Chat Studio docs)",
         path: "rigs/igor/issue-template.md",
+        installPath: ".igor/issue-template.md",
       },
     ],
     sourceUrl:

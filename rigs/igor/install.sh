@@ -38,7 +38,14 @@ echo -e "${CYAN}  One-command installer${NC}"
 echo -e "${CYAN}========================================${NC}"
 
 # -------------------------------------------------------
-# Rig source configuration
+# Upstream source -- the original author's files
+# -------------------------------------------------------
+# The workflow file is maintained by Dimagi (Open Chat Studio).
+# We download it directly from the upstream source so it stays current.
+UPSTREAM_WORKFLOW_URL="https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
+
+# -------------------------------------------------------
+# Rig source -- our installer/template files
 # -------------------------------------------------------
 RIG_SOURCE_OWNER="marshellis"
 RIG_SOURCE_REPO="ai-foundry"
@@ -115,11 +122,12 @@ fi
 WORKFLOW_DIR=".github/workflows"
 mkdir -p "$WORKFLOW_DIR"
 
-# Download workflow file
-if curl -fsSL "$RIG_BASE_URL/workflow.yml" -o "$WORKFLOW_DIR/claude-incremental.yml"; then
-    ok "Downloaded workflow -> $WORKFLOW_DIR/claude-incremental.yml"
+# Download workflow file from upstream (dimagi/open-chat-studio)
+if curl -fsSL "$UPSTREAM_WORKFLOW_URL" -o "$WORKFLOW_DIR/claude-incremental.yml"; then
+    ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
+    echo "    -> $WORKFLOW_DIR/claude-incremental.yml"
 else
-    fail "Could not download workflow file from $RIG_BASE_URL/workflow.yml"
+    fail "Could not download workflow file from $UPSTREAM_WORKFLOW_URL"
 fi
 
 # Download issue template
@@ -229,7 +237,7 @@ echo -e "${GREEN}  Igor is installed!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${CYAN}Files added:${NC}"
-echo "  .github/workflows/claude-incremental.yml  (the workflow)"
+echo "  .github/workflows/claude-incremental.yml  (workflow from dimagi/open-chat-studio)"
 echo "  .igor/issue-template.md                   (reference template)"
 echo ""
 echo -e "${CYAN}Next steps:${NC}"

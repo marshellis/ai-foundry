@@ -1,3 +1,7 @@
+<!-- Issue template for Igor tracking issues.
+     Sourced from: https://developers.openchatstudio.com/developer_guides/igor/#issue-format
+     Original author: Dimagi / Open Chat Studio -->
+
 ## Goal
 
 Brief description of what the project aims to achieve.

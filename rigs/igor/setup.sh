@@ -64,6 +64,9 @@ step "Checking prerequisites"
 command -v gh &> /dev/null || { fail_msg "GitHub CLI (gh) is not installed. Get it at https://cli.github.com/"; exit 1; }
 ok "GitHub CLI (gh) found"
 
+command -v curl &> /dev/null || { fail_msg "curl is not installed."; exit 1; }
+ok "curl found"
+
 gh auth status &> /dev/null || { fail_msg "Not authenticated with GitHub CLI. Run: gh auth login"; exit 1; }
 ok "Authenticated with GitHub"
 
@@ -101,27 +104,28 @@ gh repo view "$REPO" --json name &> /dev/null || { fail_msg "Repository $REPO no
 ok "Repository $REPO verified"
 
 # -------------------------------------------------------
-# Step 3: Copy workflow file
+# Step 3: Download workflow file from upstream
 # -------------------------------------------------------
 step "Setting up workflow file"
 
 TARGET_ROOT="${TARGET_DIR:-.}"
-SOURCE_WORKFLOW="$SCRIPT_DIR/workflow.yml"
+
+# The workflow is maintained by Dimagi (Open Chat Studio) -- download from upstream
+UPSTREAM_WORKFLOW_URL="https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
 WORKFLOW_DIR="$TARGET_ROOT/.github/workflows"
 
 mkdir -p "$WORKFLOW_DIR"
 
-if [[ -f "$SOURCE_WORKFLOW" ]]; then
-    cp "$SOURCE_WORKFLOW" "$WORKFLOW_DIR/claude-incremental.yml"
-    ok "Copied workflow to $WORKFLOW_DIR/claude-incremental.yml"
+if curl -fsSL "$UPSTREAM_WORKFLOW_URL" -o "$WORKFLOW_DIR/claude-incremental.yml"; then
+    ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
+    echo "    -> $WORKFLOW_DIR/claude-incremental.yml"
 else
-    fail_msg "Source workflow not found at $SOURCE_WORKFLOW"
-    echo "    For automatic download, use the install script instead:"
-    echo "    curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.sh | bash"
+    fail_msg "Could not download workflow file from upstream."
+    echo "    URL: $UPSTREAM_WORKFLOW_URL"
     exit 1
 fi
 
-# Copy issue template
+# Copy issue template from local rig files
 IGOR_DIR="$TARGET_ROOT/.igor"
 mkdir -p "$IGOR_DIR"
 SOURCE_TEMPLATE="$SCRIPT_DIR/issue-template.md"

@@ -30,7 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igo
 ```
 
 The installer handles everything interactively:
-- Downloads the workflow file to `.github/workflows/`
+- Downloads the workflow file directly from the [upstream source](https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml) (dimagi/open-chat-studio)
 - Creates the `claude-incremental` label
 - Sets the `ANTHROPIC_API_KEY` secret
 - Configures GitHub Actions permissions
@@ -54,7 +54,7 @@ If you already have the rig files locally:
 
 ### Manual
 
-1. Copy `workflow.yml` to `.github/workflows/claude-incremental.yml` in your repo
+1. Download the workflow from the [upstream source](https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml) and save it as `.github/workflows/claude-incremental.yml` in your repo
 2. Create a `claude-incremental` label in your repo
 3. Add `ANTHROPIC_API_KEY` as a repository secret (Settings > Secrets > Actions)
 4. Set Actions permissions to "Read and write" (Settings > Actions > General)
@@ -126,9 +126,14 @@ More context here.
 | `install.sh` | One-command installer for macOS/Linux (Bash) |
 | `setup.ps1` | Local setup script for Windows (if you have files locally) |
 | `setup.sh` | Local setup script for macOS/Linux (if you have files locally) |
-| `workflow.yml` | The GitHub Actions workflow to copy into your repo |
-| `issue-template.md` | Template for creating tracking issues |
+| `issue-template.md` | Template for creating tracking issues (sourced from Open Chat Studio docs) |
 | `config.json` | Rig metadata and package info |
+
+**Upstream files** (downloaded at install time, not bundled here):
+
+| File | Source |
+|------|--------|
+| `claude-incremental.yml` | [dimagi/open-chat-studio](https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml) |
 
 ## Credits
 

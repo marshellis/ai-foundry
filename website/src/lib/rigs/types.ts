@@ -17,8 +17,12 @@ export interface RigSetupStep {
 export interface RigFile {
   name: string;
   description: string;
-  /** Relative path within the rig source repo */
-  path: string;
+  /** Relative path within the rig source repo (for files we author) */
+  path?: string;
+  /** URL to the upstream/original source (for files we don't author) */
+  upstreamUrl?: string;
+  /** Where this file gets installed in the target repo */
+  installPath?: string;
 }
 
 export interface RigRepository {

@@ -52,10 +52,15 @@ Write-Host "  One-command installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # -------------------------------------------------------
-# Determine the source repo for rig files
+# Upstream source -- the original author's files
 # -------------------------------------------------------
-# If this script was invoked via irm|iex, we figure out the source from
-# the well-known default. Users hosting their own fork can change this.
+# The workflow file is maintained by Dimagi (Open Chat Studio).
+# We download it directly from the upstream source so it stays current.
+$UpstreamWorkflowUrl = "https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
+
+# -------------------------------------------------------
+# Rig source -- our installer/template files
+# -------------------------------------------------------
 $RigSourceOwner = "marshellis"
 $RigSourceRepo = "ai-foundry"
 $RigSourceBranch = "main"
@@ -158,13 +163,14 @@ if (-not (Test-Path $workflowDir)) {
     New-Item -ItemType Directory -Path $workflowDir -Force | Out-Null
 }
 
-# Download workflow file
+# Download workflow file from upstream (dimagi/open-chat-studio)
 try {
-    $workflowContent = Invoke-RestMethod "$RigBaseUrl/workflow.yml"
+    $workflowContent = Invoke-RestMethod $UpstreamWorkflowUrl
     Set-Content -Path "$workflowDir/claude-incremental.yml" -Value $workflowContent -Encoding UTF8
-    Write-Ok "Downloaded workflow -> $workflowDir/claude-incremental.yml"
+    Write-Ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
+    Write-Host "    -> $workflowDir/claude-incremental.yml"
 } catch {
-    Write-Fail "Could not download workflow file from $RigBaseUrl/workflow.yml"
+    Write-Fail "Could not download workflow file from $UpstreamWorkflowUrl"
     Write-Host "    Error: $_"
     exit 1
 }
@@ -288,7 +294,7 @@ Write-Host "  Igor is installed!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Files added:" -ForegroundColor Cyan
-Write-Host "  .github/workflows/claude-incremental.yml  (the workflow)"
+Write-Host "  .github/workflows/claude-incremental.yml  (workflow from dimagi/open-chat-studio)"
 Write-Host "  .igor/issue-template.md                   (reference template)"
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan

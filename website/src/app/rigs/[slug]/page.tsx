@@ -333,7 +333,7 @@ export default async function RigDetailPage({
             </CardContent>
           </Card>
 
-          {/* Files -- with links to GitHub source */}
+          {/* Files -- with links to source (upstream or rig repo) */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Files</CardTitle>
@@ -343,9 +343,14 @@ export default async function RigDetailPage({
             </CardHeader>
             <CardContent className="space-y-3">
               {rig.files.map((file) => {
-                const fileUrl = rig.repository
-                  ? getFileGitHubUrl(rig.repository, file.path)
-                  : null;
+                // Upstream files link directly to the original author's repo
+                // Our files link to the rig's own repo
+                const fileUrl = file.upstreamUrl
+                  ? file.upstreamUrl
+                  : file.path && rig.repository
+                    ? getFileGitHubUrl(rig.repository, file.path)
+                    : null;
+                const isUpstream = !!file.upstreamUrl;
                 return (
                   <div key={file.name}>
                     {fileUrl ? (
@@ -363,6 +368,16 @@ export default async function RigDetailPage({
                     <p className="text-xs text-muted-foreground">
                       {file.description}
                     </p>
+                    {isUpstream && (
+                      <p className="text-xs text-muted-foreground/70 italic">
+                        upstream -- downloaded at install time
+                      </p>
+                    )}
+                    {file.installPath && !isUpstream && (
+                      <p className="text-xs text-muted-foreground/70">
+                        installs to {file.installPath}
+                      </p>
+                    )}
                   </div>
                 );
               })}

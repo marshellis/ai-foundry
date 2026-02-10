@@ -131,13 +131,15 @@ if ($LASTEXITCODE -ne 0) {
 Write-Ok "Repository $Repo verified"
 
 # -------------------------------------------------------
-# Step 3: Copy workflow file
+# Step 3: Download workflow file from upstream
 # -------------------------------------------------------
 Write-Step "Setting up workflow file"
 
 $targetRoot = if ($TargetDir) { $TargetDir } else { Get-Location }
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$sourceWorkflow = Join-Path $scriptDir "workflow.yml"
+
+# The workflow is maintained by Dimagi (Open Chat Studio) -- download from upstream
+$UpstreamWorkflowUrl = "https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
 $workflowDir = Join-Path $targetRoot ".github/workflows"
 $workflowFile = Join-Path $workflowDir "claude-incremental.yml"
 
@@ -145,17 +147,19 @@ if (-not (Test-Path $workflowDir)) {
     New-Item -ItemType Directory -Path $workflowDir -Force | Out-Null
 }
 
-if (Test-Path $sourceWorkflow) {
-    Copy-Item $sourceWorkflow $workflowFile -Force
-    Write-Ok "Copied workflow to $workflowFile"
-} else {
-    Write-Fail "Source workflow not found at $sourceWorkflow"
-    Write-Host "    For automatic download, use the install script instead:"
-    Write-Host "    irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igor/install.ps1 | iex"
+try {
+    $workflowContent = Invoke-RestMethod $UpstreamWorkflowUrl
+    Set-Content -Path $workflowFile -Value $workflowContent -Encoding UTF8
+    Write-Ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
+    Write-Host "    -> $workflowFile"
+} catch {
+    Write-Fail "Could not download workflow file from upstream."
+    Write-Host "    URL: $UpstreamWorkflowUrl"
+    Write-Host "    Error: $_"
     exit 1
 }
 
-# Copy issue template
+# Copy issue template from local rig files
 $igorDir = Join-Path $targetRoot ".igor"
 $sourceTemplate = Join-Path $scriptDir "issue-template.md"
 if (-not (Test-Path $igorDir)) {
