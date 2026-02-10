@@ -2,6 +2,8 @@
 
 A GitHub Action that automatically makes incremental progress on large projects by working through tracking issues with task checklists.
 
+> **Based on:** [Open Chat Studio's Igor](https://developers.openchatstudio.com/developer_guides/igor/) by [Dimagi](https://github.com/dimagi/open-chat-studio). This rig packages their workflow with one-command installers and additional setup automation.
+
 ## How It Works
 
 1. You create a GitHub issue with the `claude-incremental` label and a task checklist

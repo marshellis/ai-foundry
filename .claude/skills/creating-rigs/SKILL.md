@@ -15,7 +15,7 @@ A rig is a **thin orchestration layer**, not a fork. It documents setup, fills g
 
 ```
 rigs/<rig-name>/
-  config.json          # Required -- rig metadata and package info
+  config.json          # Required -- rig metadata, credits, and full details
   install.ps1          # Required -- one-command installer for Windows (PowerShell)
   install.sh           # Required -- one-command installer for macOS/Linux (Bash)
   setup.ps1            # Optional -- local setup script (when files are already cloned)
@@ -30,8 +30,8 @@ Do NOT bundle files maintained by the original author. Download them from upstre
 
 Each file in a rig is either **ours** or **upstream**:
 
-| Source | When to use | In registry | In installer |
-|--------|-------------|-------------|--------------|
+| Source | When to use | In config.json | In installer |
+|--------|-------------|----------------|--------------|
 | **Ours** (`path`) | We wrote it to fill a gap | `path: "rigs/<name>/file"` | Bundled or downloaded from our repo |
 | **Upstream** (`upstreamUrl`) | Original author maintains it | `upstreamUrl: "https://..."` | Downloaded from upstream at install time |
 
@@ -39,50 +39,113 @@ Example from Igor:
 - `install.ps1` -- **ours** (we wrote the installer)
 - `claude-incremental.yml` -- **upstream** (maintained by dimagi/open-chat-studio)
 
-## Registry Entry
+## config.json -- The Source of Truth
 
-Every rig must be registered in `website/src/lib/rigs/registry.ts`. Required fields:
+The rig's `config.json` is the **source of truth** for all rig details. The website fetches this file directly from GitHub and displays its contents. This keeps the rig self-contained and portable.
 
-```typescript
+### Full config.json Schema
+
+```json
 {
-  slug: "rig-name",
-  name: "Display Name",
-  tagline: "One-line summary",
-  description: "Full paragraph description",
-  status: "ready",           // "ready" | "coming-soon" | "beta"
-  category: "ci-cd",         // "ci-cd" | "coding" | "personal" | "automation"
-  tags: ["tag1", "tag2"],
-  difficulty: "beginner",    // "beginner" | "intermediate" | "advanced"
+  "name": "Display Name",
+  "slug": "rig-name",
+  "version": "1.0.0",
+  "tagline": "One-line summary",
+  "description": "Full paragraph description",
+  "category": "ci-cd",
+  "tags": ["tag1", "tag2"],
+  "difficulty": "beginner",
+  "status": "ready",
 
-  // Package info
-  repository: { owner: "...", name: "...", branch: "main", path: "rigs/..." },
-  installCommands: { powershell: "irm ... | iex", bash: "curl ... | bash" },
+  "repository": {
+    "owner": "...",
+    "name": "...",
+    "branch": "main",
+    "path": "rigs/..."
+  },
 
-  // Transparency -- every rig MUST have these
-  whatItDoes: "Plain-language summary of what happens once installed...",
-  installerActions: [
-    { label: "Step name", detail: "What this step does and why" },
-  ],
-  verificationSteps: [
-    { instruction: "What to do", expectedResult: "What you should see" },
-  ],
+  "credits": {
+    "name": "Original Author/Project Name",
+    "description": "Brief explanation of what we're crediting",
+    "url": "https://link-to-original-docs",
+    "repository": "https://github.com/original/repo"
+  },
 
-  // Content
-  useCases: ["..."],
-  prerequisites: [{ name: "...", description: "...", link: "..." }],
-  setupSteps: [{ title: "...", description: "...", command: "..." }],
+  "whatItDoes": "Plain-language explanation of what happens once installed...",
 
-  // Files -- use upstreamUrl for external, path for ours
-  files: [
-    { name: "install.ps1", description: "...", path: "rigs/.../install.ps1" },
-    { name: "workflow.yml", description: "...", upstreamUrl: "https://...",
-      installPath: ".github/workflows/..." },
+  "useCases": [
+    "Example use case 1",
+    "Example use case 2"
   ],
 
-  sourceUrl: "https://...",  // Link to original project/docs
-  docsUrl: "https://...",
+  "prerequisites": [
+    {
+      "name": "Tool Name",
+      "description": "What it's used for",
+      "link": "https://where-to-get-it"
+    }
+  ],
+
+  "installerActions": [
+    {
+      "label": "Step name",
+      "detail": "What this step does and why"
+    }
+  ],
+
+  "verificationSteps": [
+    {
+      "instruction": "What to do",
+      "expectedResult": "What you should see"
+    }
+  ],
+
+  "files": [
+    {
+      "name": "install.ps1",
+      "description": "One-command installer for Windows",
+      "path": "rigs/.../install.ps1"
+    },
+    {
+      "name": "workflow.yml",
+      "description": "The workflow file (from upstream)",
+      "upstreamUrl": "https://github.com/...",
+      "installPath": ".github/workflows/..."
+    }
+  ],
+
+  "install": {
+    "powershell": "irm ... | iex",
+    "bash": "curl ... | bash"
+  }
 }
 ```
+
+### Required Fields
+
+Every rig config.json MUST have:
+
+| Field | Purpose |
+|-------|---------|
+| `credits` | Attribution for the source material/approach |
+| `whatItDoes` | Plain-language explanation of the full lifecycle |
+| `installerActions` | Every step the installer performs (for transparency) |
+| `verificationSteps` | How users confirm it works |
+| `files` | What gets installed, with upstream vs. ours clearly marked |
+
+## Database vs. config.json
+
+The database stores minimal metadata for listing/searching:
+- `slug`, `name`, `tagline`, `description`, `category`
+- `repository` (to locate the config.json)
+- `submittedBy`, `submittedByAvatar`, timestamps
+
+The config.json stores the full details:
+- `credits`, `whatItDoes`, `useCases`, `prerequisites`
+- `installerActions`, `verificationSteps`, `files`
+- `tags`, `difficulty`, `status`
+
+The rig detail page fetches config.json from GitHub and displays all sections.
 
 ## Installer Script Design
 
