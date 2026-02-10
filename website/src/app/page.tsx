@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { RigCard } from "@/components/rigs/rig-card";
-import { getFeaturedRigs } from "@/lib/rigs/registry";
+import { getAllRigs } from "@/lib/rigs/data";
 
-export default function Home() {
-  const featuredRigs = getFeaturedRigs();
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const rigs = await getAllRigs();
+  const featuredRigs = rigs.slice(0, 3);
 
   return (
     <div className="flex flex-col">
@@ -82,19 +85,21 @@ export default function Home() {
       </section>
 
       {/* Featured Rigs */}
-      <section className="container mx-auto px-4 py-16 sm:px-8">
-        <div className="mb-8 flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight">Featured Rigs</h2>
-          <Button asChild variant="ghost">
-            <Link href="/rigs">View all</Link>
-          </Button>
-        </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {featuredRigs.map((rig) => (
-            <RigCard key={rig.slug} rig={rig} />
-          ))}
-        </div>
-      </section>
+      {featuredRigs.length > 0 && (
+        <section className="container mx-auto px-4 py-16 sm:px-8">
+          <div className="mb-8 flex items-center justify-between">
+            <h2 className="text-3xl font-bold tracking-tight">Featured Rigs</h2>
+            <Button asChild variant="ghost">
+              <Link href="/rigs">View all</Link>
+            </Button>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredRigs.map((rig) => (
+              <RigCard key={rig.slug} rig={rig} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

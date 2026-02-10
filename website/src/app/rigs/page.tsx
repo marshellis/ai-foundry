@@ -1,12 +1,16 @@
 import { RigCard } from "@/components/rigs/rig-card";
-import { rigs } from "@/lib/rigs/registry";
+import { getAllRigs } from "@/lib/rigs/data";
 
 export const metadata = {
   title: "Rigs | AI Foundry",
   description: "Browse AI rigs -- pre-packaged workflows you can install and try in your own projects.",
 };
 
-export default function RigsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RigsPage() {
+  const rigs = await getAllRigs();
+
   return (
     <div className="container mx-auto px-4 py-12 sm:px-8">
       <div className="mb-8">
@@ -16,11 +20,16 @@ export default function RigsPage() {
           projects. Each rig is a package hosted on GitHub.
         </p>
       </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {rigs.map((rig) => (
-          <RigCard key={rig.slug} rig={rig} />
-        ))}
-      </div>
+
+      {rigs.length === 0 ? (
+        <p className="text-muted-foreground">No rigs yet. Be the first to submit one!</p>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {rigs.map((rig) => (
+            <RigCard key={rig.slug} rig={rig} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -160,14 +160,39 @@ try {
 }
 
 # Copy issue template from local rig files
-$igorDir = Join-Path $targetRoot ".igor"
-$sourceTemplate = Join-Path $scriptDir "issue-template.md"
-if (-not (Test-Path $igorDir)) {
-    New-Item -ItemType Directory -Path $igorDir -Force | Out-Null
-}
-if (Test-Path $sourceTemplate) {
-    Copy-Item $sourceTemplate (Join-Path $igorDir "issue-template.md") -Force
-    Write-Ok "Copied issue template to .igor/issue-template.md"
+Write-Host ""
+Write-Host "    Where should the issue template be installed?" -ForegroundColor Yellow
+Write-Host "      1) .github/ISSUE_TEMPLATE/ -- appears in GitHub's 'New Issue' picker (recommended)"
+Write-Host "      2) .igor/                  -- local reference copy only"
+Write-Host "      3) Skip"
+$templateChoice = Read-Host "    Choice (1/2/3)"
+
+if ($templateChoice -eq "1") {
+    $templateDir = Join-Path $targetRoot ".github/ISSUE_TEMPLATE"
+    $sourceTemplate = Join-Path $scriptDir "igor-tracking-issue.yml"
+    if (-not (Test-Path $templateDir)) {
+        New-Item -ItemType Directory -Path $templateDir -Force | Out-Null
+    }
+    if (Test-Path $sourceTemplate) {
+        Copy-Item $sourceTemplate (Join-Path $templateDir "igor-tracking-issue.yml") -Force
+        Write-Ok "Copied GitHub issue template to .github/ISSUE_TEMPLATE/igor-tracking-issue.yml"
+    } else {
+        Write-Warn "Could not find igor-tracking-issue.yml in rig files"
+    }
+} elseif ($templateChoice -eq "2") {
+    $igorDir = Join-Path $targetRoot ".igor"
+    $sourceTemplate = Join-Path $scriptDir "issue-template.md"
+    if (-not (Test-Path $igorDir)) {
+        New-Item -ItemType Directory -Path $igorDir -Force | Out-Null
+    }
+    if (Test-Path $sourceTemplate) {
+        Copy-Item $sourceTemplate (Join-Path $igorDir "issue-template.md") -Force
+        Write-Ok "Copied issue template to .igor/issue-template.md"
+    } else {
+        Write-Warn "Could not find issue-template.md in rig files"
+    }
+} else {
+    Write-Ok "Skipped issue template"
 }
 
 # -------------------------------------------------------

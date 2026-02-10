@@ -69,7 +69,7 @@ npm run lint
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 with App Router, React 19, TypeScript
+- **Framework:** Next.js 16 with App Router, React 19, TypeScript
 - **Styling:** Tailwind CSS v4 + shadcn/ui components
 - **Package Manager:** npm
 - **Fonts:** Geist Sans and Geist Mono

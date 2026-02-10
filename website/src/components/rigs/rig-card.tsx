@@ -10,17 +10,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { Rig } from "@/lib/rigs/types";
 
-const statusColors: Record<string, string> = {
-  ready: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
-  beta: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20",
-  "coming-soon":
-    "bg-muted text-muted-foreground border-muted",
-};
-
-const difficultyLabels: Record<string, string> = {
-  beginner: "Beginner",
-  intermediate: "Intermediate",
-  advanced: "Advanced",
+const categoryLabels: Record<string, string> = {
+  "ci-cd": "CI/CD",
+  coding: "Coding",
+  personal: "Personal",
+  automation: "Automation",
 };
 
 interface RigCardProps {
@@ -34,11 +28,8 @@ export function RigCard({ rig }: RigCardProps) {
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="text-xl">{rig.name}</CardTitle>
-            <Badge
-              variant="outline"
-              className={statusColors[rig.status] ?? ""}
-            >
-              {rig.status === "coming-soon" ? "Coming Soon" : rig.status}
+            <Badge variant="secondary">
+              {categoryLabels[rig.category] ?? rig.category}
             </Badge>
           </div>
           <CardDescription className="text-base">
@@ -50,13 +41,15 @@ export function RigCard({ rig }: RigCardProps) {
             {rig.description}
           </p>
         </CardContent>
-        <CardFooter className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{difficultyLabels[rig.difficulty]}</Badge>
-          {rig.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs">
-              {tag}
-            </Badge>
-          ))}
+        <CardFooter className="flex items-center gap-2 text-xs text-muted-foreground">
+          {rig.submittedByAvatar && (
+            <img
+              src={rig.submittedByAvatar}
+              alt={rig.submittedBy}
+              className="h-5 w-5 rounded-full"
+            />
+          )}
+          <span>by {rig.submittedBy}</span>
         </CardFooter>
       </Card>
     </Link>

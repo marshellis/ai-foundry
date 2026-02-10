@@ -126,12 +126,35 @@ else
 fi
 
 # Copy issue template from local rig files
-IGOR_DIR="$TARGET_ROOT/.igor"
-mkdir -p "$IGOR_DIR"
-SOURCE_TEMPLATE="$SCRIPT_DIR/issue-template.md"
-if [[ -f "$SOURCE_TEMPLATE" ]]; then
-    cp "$SOURCE_TEMPLATE" "$IGOR_DIR/issue-template.md"
-    ok "Copied issue template to .igor/issue-template.md"
+echo ""
+echo -e "    ${YELLOW}Where should the issue template be installed?${NC}"
+echo "      1) .github/ISSUE_TEMPLATE/ -- appears in GitHub's 'New Issue' picker (recommended)"
+echo "      2) .igor/                  -- local reference copy only"
+echo "      3) Skip"
+read -rp "    Choice (1/2/3): " TEMPLATE_CHOICE
+
+if [[ "$TEMPLATE_CHOICE" == "1" ]]; then
+    TEMPLATE_DIR="$TARGET_ROOT/.github/ISSUE_TEMPLATE"
+    SOURCE_TEMPLATE="$SCRIPT_DIR/igor-tracking-issue.yml"
+    mkdir -p "$TEMPLATE_DIR"
+    if [[ -f "$SOURCE_TEMPLATE" ]]; then
+        cp "$SOURCE_TEMPLATE" "$TEMPLATE_DIR/igor-tracking-issue.yml"
+        ok "Copied GitHub issue template to .github/ISSUE_TEMPLATE/igor-tracking-issue.yml"
+    else
+        warn "Could not find igor-tracking-issue.yml in rig files"
+    fi
+elif [[ "$TEMPLATE_CHOICE" == "2" ]]; then
+    IGOR_DIR="$TARGET_ROOT/.igor"
+    mkdir -p "$IGOR_DIR"
+    SOURCE_TEMPLATE="$SCRIPT_DIR/issue-template.md"
+    if [[ -f "$SOURCE_TEMPLATE" ]]; then
+        cp "$SOURCE_TEMPLATE" "$IGOR_DIR/issue-template.md"
+        ok "Copied issue template to .igor/issue-template.md"
+    else
+        warn "Could not find issue-template.md in rig files"
+    fi
+else
+    ok "Skipped issue template"
 fi
 
 # -------------------------------------------------------

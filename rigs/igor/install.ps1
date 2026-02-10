@@ -143,7 +143,7 @@ Write-Ok "Repository $Repo verified"
 Write-Step "Downloading Igor rig files"
 
 # Ensure we're in the repo root
-if ($LASTEXITCODE -eq 0 -and (Test-Path ".git")) {
+if (Test-Path ".git") {
     Write-Ok "In git repository root"
 } else {
     # Try to find git root
@@ -175,18 +175,41 @@ try {
     exit 1
 }
 
-# Download issue template (to a local reference copy)
-$rigDir = ".igor"
-if (-not (Test-Path $rigDir)) {
-    New-Item -ItemType Directory -Path $rigDir -Force | Out-Null
-}
+# Download issue template
+Write-Host ""
+Write-Host "    Where should the issue template be installed?" -ForegroundColor Yellow
+Write-Host "      1) .github/ISSUE_TEMPLATE/ -- appears in GitHub's 'New Issue' picker (recommended)"
+Write-Host "      2) .igor/                  -- local reference copy only"
+Write-Host "      3) Skip"
+$templateChoice = Read-Host "    Choice (1/2/3)"
 
-try {
-    $templateContent = Invoke-RestMethod "$RigBaseUrl/issue-template.md"
-    Set-Content -Path "$rigDir/issue-template.md" -Value $templateContent -Encoding UTF8
-    Write-Ok "Downloaded issue template -> $rigDir/issue-template.md"
-} catch {
-    Write-Warn "Could not download issue template (non-critical)"
+if ($templateChoice -eq "1") {
+    $templateDir = ".github/ISSUE_TEMPLATE"
+    $templateFile = "$templateDir/igor-tracking-issue.yml"
+    if (-not (Test-Path $templateDir)) {
+        New-Item -ItemType Directory -Path $templateDir -Force | Out-Null
+    }
+    try {
+        $templateContent = Invoke-RestMethod "$RigBaseUrl/igor-tracking-issue.yml"
+        Set-Content -Path $templateFile -Value $templateContent -Encoding UTF8
+        Write-Ok "Downloaded GitHub issue template -> $templateFile"
+    } catch {
+        Write-Warn "Could not download issue template (non-critical)"
+    }
+} elseif ($templateChoice -eq "2") {
+    $rigDir = ".igor"
+    if (-not (Test-Path $rigDir)) {
+        New-Item -ItemType Directory -Path $rigDir -Force | Out-Null
+    }
+    try {
+        $templateContent = Invoke-RestMethod "$RigBaseUrl/issue-template.md"
+        Set-Content -Path "$rigDir/issue-template.md" -Value $templateContent -Encoding UTF8
+        Write-Ok "Downloaded issue template -> $rigDir/issue-template.md"
+    } catch {
+        Write-Warn "Could not download issue template (non-critical)"
+    }
+} else {
+    Write-Ok "Skipped issue template"
 }
 
 # -------------------------------------------------------
@@ -279,10 +302,10 @@ Replace this with a real task description. Include file paths, expected behavior
     if ($LASTEXITCODE -eq 0) {
         Write-Ok "Created sample issue: $issueUrl"
     } else {
-        Write-Warn "Could not create issue. Create one manually using .igor/issue-template.md"
+        Write-Warn "Could not create issue. Create one manually using the issue template."
     }
 } else {
-    Write-Ok "Skipped. Use .igor/issue-template.md as a reference when creating issues."
+    Write-Ok "Skipped. Create tracking issues with the 'claude-incremental' label when ready."
 }
 
 # -------------------------------------------------------
@@ -295,11 +318,18 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Files added:" -ForegroundColor Cyan
 Write-Host "  .github/workflows/claude-incremental.yml  (workflow from dimagi/open-chat-studio)"
-Write-Host "  .igor/issue-template.md                   (reference template)"
+if ($templateChoice -eq "1") {
+    Write-Host "  .github/ISSUE_TEMPLATE/igor-tracking-issue.yml  (GitHub issue template)"
+} elseif ($templateChoice -eq "2") {
+    Write-Host "  .igor/issue-template.md                   (reference template)"
+}
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "  1. Commit and push the new files:"
-Write-Host "     git add .github/workflows/claude-incremental.yml .igor/"
+Write-Host "     git add .github/"
+if ($templateChoice -eq "2") {
+    Write-Host "     git add .igor/"
+}
 Write-Host "     git commit -m 'Add Igor incremental worker'"
 Write-Host "     git push"
 Write-Host "  2. Create tracking issues with the 'claude-incremental' label"

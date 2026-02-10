@@ -131,13 +131,32 @@ else
 fi
 
 # Download issue template
-IGOR_DIR=".igor"
-mkdir -p "$IGOR_DIR"
+echo ""
+echo -e "    ${YELLOW}Where should the issue template be installed?${NC}"
+echo "      1) .github/ISSUE_TEMPLATE/ -- appears in GitHub's 'New Issue' picker (recommended)"
+echo "      2) .igor/                  -- local reference copy only"
+echo "      3) Skip"
+read -rp "    Choice (1/2/3): " TEMPLATE_CHOICE
 
-if curl -fsSL "$RIG_BASE_URL/issue-template.md" -o "$IGOR_DIR/issue-template.md"; then
-    ok "Downloaded issue template -> $IGOR_DIR/issue-template.md"
+if [[ "$TEMPLATE_CHOICE" == "1" ]]; then
+    TEMPLATE_DIR=".github/ISSUE_TEMPLATE"
+    TEMPLATE_FILE="$TEMPLATE_DIR/igor-tracking-issue.yml"
+    mkdir -p "$TEMPLATE_DIR"
+    if curl -fsSL "$RIG_BASE_URL/igor-tracking-issue.yml" -o "$TEMPLATE_FILE"; then
+        ok "Downloaded GitHub issue template -> $TEMPLATE_FILE"
+    else
+        warn "Could not download issue template (non-critical)"
+    fi
+elif [[ "$TEMPLATE_CHOICE" == "2" ]]; then
+    IGOR_DIR=".igor"
+    mkdir -p "$IGOR_DIR"
+    if curl -fsSL "$RIG_BASE_URL/issue-template.md" -o "$IGOR_DIR/issue-template.md"; then
+        ok "Downloaded issue template -> $IGOR_DIR/issue-template.md"
+    else
+        warn "Could not download issue template (non-critical)"
+    fi
 else
-    warn "Could not download issue template (non-critical)"
+    ok "Skipped issue template"
 fi
 
 # -------------------------------------------------------
@@ -222,10 +241,10 @@ Replace this with a real task description. Include file paths, expected behavior
     if [[ $? -eq 0 ]]; then
         ok "Created sample issue: $ISSUE_URL"
     else
-        warn "Could not create issue. Create one manually using .igor/issue-template.md"
+        warn "Could not create issue. Create one manually using the issue template."
     fi
 else
-    ok "Skipped. Use .igor/issue-template.md as a reference when creating issues."
+    ok "Skipped. Create tracking issues with the 'claude-incremental' label when ready."
 fi
 
 # -------------------------------------------------------
@@ -238,11 +257,18 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${CYAN}Files added:${NC}"
 echo "  .github/workflows/claude-incremental.yml  (workflow from dimagi/open-chat-studio)"
-echo "  .igor/issue-template.md                   (reference template)"
+if [[ "$TEMPLATE_CHOICE" == "1" ]]; then
+    echo "  .github/ISSUE_TEMPLATE/igor-tracking-issue.yml  (GitHub issue template)"
+elif [[ "$TEMPLATE_CHOICE" == "2" ]]; then
+    echo "  .igor/issue-template.md                   (reference template)"
+fi
 echo ""
 echo -e "${CYAN}Next steps:${NC}"
 echo "  1. Commit and push the new files:"
-echo "     git add .github/workflows/claude-incremental.yml .igor/"
+echo "     git add .github/"
+if [[ "$TEMPLATE_CHOICE" == "2" ]]; then
+    echo "     git add .igor/"
+fi
 echo "     git commit -m 'Add Igor incremental worker'"
 echo "     git push"
 echo "  2. Create tracking issues with the 'claude-incremental' label"

@@ -31,6 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igo
 
 The installer handles everything interactively:
 - Downloads the workflow file directly from the [upstream source](https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml) (dimagi/open-chat-studio)
+- Installs the issue template -- either as a GitHub issue template (appears in the "New Issue" picker) or as a local reference copy
 - Creates the `claude-incremental` label
 - Sets the `ANTHROPIC_API_KEY` secret
 - Configures GitHub Actions permissions
@@ -126,7 +127,8 @@ More context here.
 | `install.sh` | One-command installer for macOS/Linux (Bash) |
 | `setup.ps1` | Local setup script for Windows (if you have files locally) |
 | `setup.sh` | Local setup script for macOS/Linux (if you have files locally) |
-| `issue-template.md` | Template for creating tracking issues (sourced from Open Chat Studio docs) |
+| `igor-tracking-issue.yml` | GitHub issue template (appears in "New Issue" picker when installed to .github/ISSUE_TEMPLATE/) |
+| `issue-template.md` | Plain markdown reference template (alternative to GitHub issue template) |
 | `config.json` | Rig metadata and package info |
 
 **Upstream files** (downloaded at install time, not bundled here):

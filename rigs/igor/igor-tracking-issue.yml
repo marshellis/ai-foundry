@@ -1,0 +1,55 @@
+name: Igor Tracking Issue
+description: Create a tracking issue for Igor to work through incrementally
+title: "Igor: "
+labels: ["claude-incremental"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to create a tracking issue for Igor. Each task should be
+        a standalone unit of work that Igor can implement in a single PR.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Brief description of what the project aims to achieve.
+      placeholder: "e.g. Migrate all JavaScript files to TypeScript"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Optional background info the AI should know about.
+      placeholder: "e.g. The project uses ESM modules and Jest for testing."
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: |
+        List tasks as checkboxes. Each task should have a short heading and detailed
+        context below it. Igor picks up the first unchecked, non-blocked task.
+      value: |
+        ### Task 1: Short description
+        - [ ] Task 1
+
+        Detailed context for this task. Include relevant file paths, expected
+        behavior, edge cases, or links to related code.
+
+        ### Task 2: Short description
+        - [ ] Task 2
+
+        More context here. The more specific you are about what "done" looks
+        like, the better the result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: learnings
+    attributes:
+      label: Learnings
+      description: Igor updates this section with discoveries as it works through tasks.
+      value: "<!-- Igor updates this section automatically -->"

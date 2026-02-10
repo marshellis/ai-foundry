@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { UserMenu } from "@/components/layout/user-menu";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -45,6 +46,7 @@ export function Navbar() {
           >
             GitHub
           </a>
+          <UserMenu />
         </div>
       </div>
     </header>
