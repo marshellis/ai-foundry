@@ -1,4 +1,4 @@
-export type RigCategory = "ci-cd" | "coding" | "personal" | "automation";
+export type RigCategory = "ci-cd" | "coding" | "personal" | "automation" | "self-hosted";
 
 export interface RigRepository {
   owner: string;

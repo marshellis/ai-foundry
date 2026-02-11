@@ -1,0 +1,145 @@
+{
+  "name": "OpenClaw on DigitalOcean",
+  "slug": "openclaw-droplet",
+  "version": "1.0.0",
+  "tagline": "Deploy your personal AI assistant with WhatsApp, Telegram, and Gmail",
+  "description": "A complete setup for OpenClaw on a DigitalOcean droplet. Includes remote installation, swap optimization, and guided setup for WhatsApp (with dedicated number), Telegram bot, and Gmail Pub/Sub integration.",
+  "category": "self-hosted",
+  "tags": ["openclaw", "digitalocean", "whatsapp", "telegram", "gmail", "ai-assistant"],
+  "difficulty": "intermediate",
+  "status": "ready",
+
+  "repository": {
+    "owner": "marshellis",
+    "name": "ai-foundry",
+    "branch": "main",
+    "path": "rigs/openclaw-droplet"
+  },
+
+  "credits": {
+    "name": "OpenClaw",
+    "description": "OpenClaw is a personal AI assistant. This rig automates the official DigitalOcean deployment guide and adds channel setup for WhatsApp, Telegram, and Gmail.",
+    "url": "https://docs.openclaw.ai/platforms/digitalocean",
+    "repository": "https://github.com/openclaw/openclaw"
+  },
+
+  "whatItDoes": "Deploys OpenClaw on a DigitalOcean droplet ($6/month) with full messaging integration. The installer runs from your local machine, SSHs into the droplet, installs OpenClaw with systemd persistence, and walks you through connecting WhatsApp (with a dedicated number), Telegram (via BotFather), and Gmail (via Pub/Sub). After setup, your AI assistant responds on all three channels.",
+
+  "useCases": [
+    "Personal AI assistant accessible via WhatsApp, Telegram, and email",
+    "Always-on AI that runs 24/7 on a cheap VPS",
+    "Private alternative to cloud AI assistants"
+  ],
+
+  "prerequisites": [
+    {
+      "name": "DigitalOcean Account",
+      "description": "Create a $6/month Ubuntu 24.04 droplet",
+      "link": "https://cloud.digitalocean.com/"
+    },
+    {
+      "name": "SSH Key",
+      "description": "SSH access to your droplet (key or password)"
+    },
+    {
+      "name": "Anthropic or OpenAI API Key",
+      "description": "For the AI model powering the assistant",
+      "link": "https://console.anthropic.com/"
+    },
+    {
+      "name": "Dedicated Phone Number (for WhatsApp)",
+      "description": "Google Voice, prepaid SIM, or VoIP number -- see README for options"
+    },
+    {
+      "name": "Google Cloud Account (for Gmail)",
+      "description": "With billing enabled for Pub/Sub",
+      "link": "https://console.cloud.google.com/"
+    }
+  ],
+
+  "installerActions": [
+    {
+      "label": "Connect to droplet via SSH",
+      "detail": "Tests SSH connection and uploads setup script"
+    },
+    {
+      "label": "Update system and add swap",
+      "detail": "Runs apt upgrade and creates 2GB swap for 1GB droplets"
+    },
+    {
+      "label": "Install Node.js 22 and dependencies",
+      "detail": "NodeSource, gcloud CLI, Tailscale"
+    },
+    {
+      "label": "Run OpenClaw installer",
+      "detail": "Downloads and runs the official OpenClaw installer"
+    },
+    {
+      "label": "Run onboarding wizard",
+      "detail": "Interactive setup for daemon, API keys, and initial config"
+    },
+    {
+      "label": "Guide WhatsApp setup",
+      "detail": "Link WhatsApp via QR code with your dedicated number"
+    },
+    {
+      "label": "Guide Telegram setup",
+      "detail": "Create bot via BotFather and configure token"
+    },
+    {
+      "label": "Guide Gmail Pub/Sub setup",
+      "detail": "Walk through GCP project, topic, and webhook configuration"
+    }
+  ],
+
+  "verificationSteps": [
+    {
+      "instruction": "Check OpenClaw is running",
+      "expectedResult": "openclaw status shows gateway running with systemd"
+    },
+    {
+      "instruction": "Access Control UI via SSH tunnel",
+      "expectedResult": "ssh -L 18789:localhost:18789 root@DROPLET_IP then open http://localhost:18789"
+    },
+    {
+      "instruction": "Send a WhatsApp message to your assistant",
+      "expectedResult": "Message appears in OpenClaw logs, assistant responds"
+    },
+    {
+      "instruction": "Send a Telegram message to your bot",
+      "expectedResult": "Bot responds in Telegram"
+    },
+    {
+      "instruction": "Send an email to your assistant's Gmail",
+      "expectedResult": "Email triggers webhook, assistant processes and can respond"
+    }
+  ],
+
+  "files": [
+    {
+      "name": "install.ps1",
+      "description": "Remote installer for Windows (SSHs into droplet)",
+      "path": "rigs/openclaw-droplet/install.ps1"
+    },
+    {
+      "name": "install.sh",
+      "description": "Remote installer for macOS/Linux (SSHs into droplet)",
+      "path": "rigs/openclaw-droplet/install.sh"
+    },
+    {
+      "name": "droplet-setup.sh",
+      "description": "Setup script that runs on the droplet",
+      "path": "rigs/openclaw-droplet/droplet-setup.sh"
+    },
+    {
+      "name": "setup-channels.sh",
+      "description": "Post-install channel configuration helper",
+      "path": "rigs/openclaw-droplet/setup-channels.sh"
+    }
+  ],
+
+  "install": {
+    "powershell": "irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex",
+    "bash": "curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.sh | bash"
+  }
+}
