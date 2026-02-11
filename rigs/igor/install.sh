@@ -41,13 +41,6 @@ echo -e "${CYAN}  One-command installer v${SCRIPT_VERSION}${NC}"
 echo -e "${CYAN}========================================${NC}"
 
 # -------------------------------------------------------
-# Upstream source -- the original author's files
-# -------------------------------------------------------
-# The workflow file is maintained by Dimagi (Open Chat Studio).
-# We download it directly from the upstream source so it stays current.
-UPSTREAM_WORKFLOW_URL="https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
-
-# -------------------------------------------------------
 # Rig source -- our installer/template files
 # -------------------------------------------------------
 RIG_SOURCE_OWNER="marshellis"
@@ -125,12 +118,12 @@ fi
 WORKFLOW_DIR=".github/workflows"
 mkdir -p "$WORKFLOW_DIR"
 
-# Download workflow file from upstream (dimagi/open-chat-studio)
-if curl -fsSL "$UPSTREAM_WORKFLOW_URL" -o "$WORKFLOW_DIR/claude-incremental.yml"; then
-    ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
+# Download workflow file from rig
+if curl -fsSL "$RIG_BASE_URL/claude-incremental.yml" -o "$WORKFLOW_DIR/claude-incremental.yml"; then
+    ok "Downloaded workflow from ai-foundry"
     echo "    -> $WORKFLOW_DIR/claude-incremental.yml"
 else
-    fail "Could not download workflow file from $UPSTREAM_WORKFLOW_URL"
+    fail "Could not download workflow file from $RIG_BASE_URL"
 fi
 
 # Download issue template

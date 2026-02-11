@@ -3,7 +3,7 @@
   "slug": "igor",
   "version": "1.0.0",
   "tagline": "Incremental AI worker that chips away at large projects",
-  "description": "A GitHub Action that automatically makes incremental progress on large projects by working through tracking issues with task checklists. Create a tracking issue with a checklist, and Igor picks up the next unchecked task each day -- reading context, implementing the change, and opening a PR.",
+  "description": "A derivative of Open Chat Studio's Igor by Dimagi. A GitHub Action that automatically makes incremental progress on large projects by working through tracking issues with task checklists. Create a tracking issue with a checklist, and Igor picks up the next unchecked task each day. AI Foundry maintains a generic workflow for Node/JS/TS projects; see the original for Python/Django setups.",
   "category": "ci-cd",
   "tags": ["github-actions", "claude", "automation", "incremental"],
   "difficulty": "beginner",
@@ -18,7 +18,7 @@
 
   "credits": {
     "name": "Open Chat Studio",
-    "description": "Igor is based on the incremental AI worker design from Open Chat Studio by Dimagi.",
+    "description": "This is a derivative of Open Chat Studio's Igor by Dimagi. AI Foundry adapts the workflow for generic Node/JS/TS projects and maintains it here. The original design and documentation are at Open Chat Studio.",
     "url": "https://developers.openchatstudio.com/developer_guides/igor/",
     "repository": "https://github.com/dimagi/open-chat-studio"
   },
@@ -59,8 +59,8 @@
       "detail": "Reads your git remote to detect the GitHub repo, or prompts you to enter one. Verifies the repo exists and is accessible."
     },
     {
-      "label": "Download workflow file from upstream",
-      "detail": "Downloads claude-incremental.yml directly from the original author (dimagi/open-chat-studio) and places it at .github/workflows/claude-incremental.yml. This keeps the workflow up to date with upstream improvements."
+      "label": "Download workflow file",
+      "detail": "Downloads claude-incremental.yml from ai-foundry (generic for Node/JS/TS projects) and places it at .github/workflows/claude-incremental.yml."
     },
     {
       "label": "Install issue template",
@@ -120,8 +120,8 @@
     },
     {
       "name": "claude-incremental.yml",
-      "description": "The GitHub Actions workflow that powers Igor (from dimagi/open-chat-studio)",
-      "upstreamUrl": "https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml",
+      "description": "The GitHub Actions workflow that powers Igor (generic for Node/JS/TS, maintained by ai-foundry)",
+      "path": "rigs/igor/claude-incremental.yml",
       "installPath": ".github/workflows/claude-incremental.yml"
     },
     {

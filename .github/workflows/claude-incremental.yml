@@ -1,4 +1,4 @@
-﻿name: Igor
+name: Igor
 
 on:
   schedule:
@@ -90,32 +90,6 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-      redis:
-        image: redis
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-    env:
-      DJANGO_DATABASE_USER: postgres
-      DJANGO_DATABASE_PASSWORD: postgres_password
-      SECRET_KEY: secret-test-key
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -123,21 +97,21 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Set up Node.js
+        if: hashFiles('package.json') != '' || hashFiles('website/package.json') != ''
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.13'
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
+      - name: Install dependencies
+        if: hashFiles('package.json') != ''
+        run: npm ci
 
-      - name: Install Python dependencies
-        run: |
-          uv venv
-          uv sync --locked --dev
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - name: Install dependencies (website subdirectory)
+        if: hashFiles('package.json') == '' && hashFiles('website/package.json') != ''
+        working-directory: website
+        run: npm ci
 
       - name: Create branch
         id: branch
@@ -164,16 +138,16 @@ jobs:
             1. Read the issue and identify the first unchecked task (- [ ]) that is not marked as blocked
             2. Implement that task, making git commits as you go
             3. Run lint and tests, fix any issues:
-               - Python: ruff check --fix && ruff format
-               - JS/TS: npm run lint
-               - Python test: pytest path/to/file.py -v
+               - JS/TS: npm run lint (from project root or website/ if that's where package.json lives)
+               - Build: npm run build
+               - Python: ruff check --fix && ruff format (if the project uses Python)
+               - Python test: pytest path/to/file.py -v (if applicable)
             4. Push the changes you've made to GitHub and create a PR with the 'claude-incremental' label.
             5. After completing the task, update the issue using gh issue edit to:
                - Check off the completed task (change - [ ] to - [x])
                - Add any learnings to the ## Learnings section (create if needed)
-            5. If you cannot complete the task, mark it as blocked (add "blocked:" prefix to the task)
-            6. Add a comment to the issue summarizing what you did
+            6. If you cannot complete the task, mark it as blocked (add "blocked:" prefix to the task)
+            7. Add a comment to the issue summarizing what you did
 
             If all tasks are complete or blocked, comment on the issue explaining the status.
-          claude_args: '--allowedTools "Bash(npm run lint:*),Bash(npm run type-check:*),Bash(ruff check:*),Bash(ruff format:*),Bash(pytest:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Read,Write,Edit"'
-
+          claude_args: '--allowedTools "Bash(npm run lint:*),Bash(npm run type-check:*),Bash(npm run build:*),Bash(npm ci),Bash(npm install:*),Bash(ruff check:*),Bash(ruff format:*),Bash(pytest:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Read,Write,Edit"'

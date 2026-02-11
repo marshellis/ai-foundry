@@ -2,7 +2,7 @@
 
 A GitHub Action that automatically makes incremental progress on large projects by working through tracking issues with task checklists.
 
-> **Based on:** [Open Chat Studio's Igor](https://developers.openchatstudio.com/developer_guides/igor/) by [Dimagi](https://github.com/dimagi/open-chat-studio). This rig packages their workflow with one-command installers and additional setup automation.
+> **Derivative work:** Based on [Open Chat Studio's Igor](https://developers.openchatstudio.com/developer_guides/igor/) by [Dimagi](https://github.com/dimagi/open-chat-studio). AI Foundry maintains a generic workflow that works for Node/JS/TS projects, with one-command installers and setup automation. See the [original design](https://developers.openchatstudio.com/developer_guides/igor/) for the source.
 
 ## How It Works
 
@@ -32,7 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/igo
 ```
 
 The installer handles everything interactively:
-- Downloads the workflow file directly from the [upstream source](https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml) (dimagi/open-chat-studio)
+- Downloads the workflow file from ai-foundry (generic for Node/JS/TS projects)
 - Installs the issue template -- either as a GitHub issue template (appears in the "New Issue" picker) or as a local reference copy
 - Creates the `claude-incremental` label
 - Sets the `ANTHROPIC_API_KEY` secret
@@ -57,7 +57,7 @@ If you already have the rig files locally:
 
 ### Manual
 
-1. Download the workflow from the [upstream source](https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml) and save it as `.github/workflows/claude-incremental.yml` in your repo
+1. Copy `claude-incremental.yml` from this rig (or download from [ai-foundry](https://github.com/marshellis/ai-foundry/blob/main/rigs/igor/claude-incremental.yml)) and save it as `.github/workflows/claude-incremental.yml` in your repo
 2. Create a `claude-incremental` label in your repo
 3. Add `ANTHROPIC_API_KEY` as a repository secret (Settings > Secrets > Actions)
 4. Set Actions permissions to "Read and write" (Settings > Actions > General)
@@ -88,6 +88,31 @@ After installation, follow these steps to confirm Igor is working:
 4. **Check for a pull request** -- When the workflow completes, Igor should have created a new branch, pushed a commit, and opened a PR. The checklist item in the tracking issue should be checked off.
 
 5. **Review the PR** -- The PR should contain a focused change matching the task. Merge it if it looks good. Igor will pick up the next unchecked task on the next run.
+
+## Customizing the Workflow
+
+The default workflow targets Node/JS/TS projects (checks for `package.json` at root or in `website/`). You may need to adjust it for your codebase:
+
+**For Python projects:** Add these steps before "Create branch":
+```yaml
+- name: Set up Python
+  uses: actions/setup-python@v6
+  with:
+    python-version: '3.13'
+- name: Set up uv
+  uses: astral-sh/setup-uv@v7
+  with:
+    enable-cache: true
+- name: Install Python dependencies
+  run: |
+    uv venv
+    uv sync --locked --dev
+    echo "$PWD/.venv/bin" >> $GITHUB_PATH
+```
+
+**For projects needing Postgres/Redis:** Add the `services:` block and env vars from the [original Open Chat Studio workflow](https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml).
+
+**For monorepos:** If your app lives in a subdirectory, the workflow auto-detects `website/package.json`. For other layouts, edit the "Install dependencies" step to use the correct `working-directory`.
 
 ## Issue Format
 
@@ -132,13 +157,8 @@ More context here.
 | `igor-tracking-issue.yml` | GitHub issue template (appears in "New Issue" picker when installed to .github/ISSUE_TEMPLATE/) |
 | `issue-template.md` | Plain markdown reference template (alternative to GitHub issue template) |
 | `config.json` | Rig metadata and package info |
-
-**Upstream files** (downloaded at install time, not bundled here):
-
-| File | Source |
-|------|--------|
-| `claude-incremental.yml` | [dimagi/open-chat-studio](https://github.com/dimagi/open-chat-studio/blob/main/.github/workflows/claude-incremental.yml) |
+| `claude-incremental.yml` | Generic workflow (Node/JS/TS), installed to .github/workflows/ |
 
 ## Credits
 
-Based on [Open Chat Studio's Igor design](https://developers.openchatstudio.com/developer_guides/igor/).
+This is a derivative of [Open Chat Studio's Igor](https://developers.openchatstudio.com/developer_guides/igor/) by [Dimagi](https://github.com/dimagi/open-chat-studio). AI Foundry adapts the workflow for generic projects and maintains it here. The original design and documentation are at Open Chat Studio.

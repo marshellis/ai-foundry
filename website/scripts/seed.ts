@@ -50,9 +50,9 @@ async function main() {
     slug: "igor",
     name: "Igor",
     tagline: "Incremental AI worker that chips away at large projects",
-    description: `A GitHub Action that automatically makes incremental progress on large projects by working through tracking issues with task checklists.
+    description: `A derivative of Open Chat Studio's Igor by Dimagi. A GitHub Action that automatically makes incremental progress on large projects by working through tracking issues with task checklists.
 
-Create a tracking issue with a checklist, and Igor picks up the next unchecked task each day -- reading context, implementing the change, and opening a PR.
+Create a tracking issue with a checklist, and Igor picks up the next unchecked task each day. AI Foundry maintains a generic workflow for Node/JS/TS projects; see the original for Python/Django setups.
 
 Once installed, Igor monitors your GitHub repository for issues labeled 'claude-incremental'. Each issue should contain a checklist of tasks. Every day at 2 AM UTC (or when triggered manually), Igor picks the next unchecked task, reads your codebase for context, implements the change on a new branch, opens a pull request, and checks off the task. You review and merge the PR like any other contribution.`,
     category: "ci-cd",

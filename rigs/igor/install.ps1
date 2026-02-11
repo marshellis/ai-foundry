@@ -55,13 +55,6 @@ Write-Host "  One-command installer v$ScriptVersion" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # -------------------------------------------------------
-# Upstream source -- the original author's files
-# -------------------------------------------------------
-# The workflow file is maintained by Dimagi (Open Chat Studio).
-# We download it directly from the upstream source so it stays current.
-$UpstreamWorkflowUrl = "https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
-
-# -------------------------------------------------------
 # Rig source -- our installer/template files
 # -------------------------------------------------------
 $RigSourceOwner = "marshellis"
@@ -166,14 +159,14 @@ if (-not (Test-Path $workflowDir)) {
     New-Item -ItemType Directory -Path $workflowDir -Force | Out-Null
 }
 
-# Download workflow file from upstream (dimagi/open-chat-studio)
+# Download workflow file from rig
 try {
-    $workflowContent = Invoke-RestMethod $UpstreamWorkflowUrl
+    $workflowContent = Invoke-RestMethod "$RigBaseUrl/claude-incremental.yml"
     Set-Content -Path "$workflowDir/claude-incremental.yml" -Value $workflowContent -Encoding UTF8
-    Write-Ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
+    Write-Ok "Downloaded workflow from ai-foundry"
     Write-Host "    -> $workflowDir/claude-incremental.yml"
 } catch {
-    Write-Fail "Could not download workflow file from $UpstreamWorkflowUrl"
+    Write-Fail "Could not download workflow file from $RigBaseUrl"
     Write-Host "    Error: $_"
     exit 1
 }

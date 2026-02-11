@@ -104,24 +104,22 @@ gh repo view "$REPO" --json name &> /dev/null || { fail_msg "Repository $REPO no
 ok "Repository $REPO verified"
 
 # -------------------------------------------------------
-# Step 3: Download workflow file from upstream
+# Step 3: Copy workflow file from rig
 # -------------------------------------------------------
 step "Setting up workflow file"
 
 TARGET_ROOT="${TARGET_DIR:-.}"
-
-# The workflow is maintained by Dimagi (Open Chat Studio) -- download from upstream
-UPSTREAM_WORKFLOW_URL="https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
 WORKFLOW_DIR="$TARGET_ROOT/.github/workflows"
+SOURCE_WORKFLOW="$SCRIPT_DIR/claude-incremental.yml"
 
 mkdir -p "$WORKFLOW_DIR"
 
-if curl -fsSL "$UPSTREAM_WORKFLOW_URL" -o "$WORKFLOW_DIR/claude-incremental.yml"; then
-    ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
-    echo "    -> $WORKFLOW_DIR/claude-incremental.yml"
+if [[ -f "$SOURCE_WORKFLOW" ]]; then
+    cp "$SOURCE_WORKFLOW" "$WORKFLOW_DIR/claude-incremental.yml"
+    ok "Copied workflow from rig to $WORKFLOW_DIR/claude-incremental.yml"
 else
-    fail_msg "Could not download workflow file from upstream."
-    echo "    URL: $UPSTREAM_WORKFLOW_URL"
+    fail_msg "Could not find claude-incremental.yml in rig directory."
+    echo "    Expected: $SOURCE_WORKFLOW"
     exit 1
 fi
 

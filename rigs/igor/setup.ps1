@@ -131,31 +131,26 @@ if ($LASTEXITCODE -ne 0) {
 Write-Ok "Repository $Repo verified"
 
 # -------------------------------------------------------
-# Step 3: Download workflow file from upstream
+# Step 3: Copy workflow file from rig
 # -------------------------------------------------------
 Write-Step "Setting up workflow file"
 
 $targetRoot = if ($TargetDir) { $TargetDir } else { Get-Location }
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# The workflow is maintained by Dimagi (Open Chat Studio) -- download from upstream
-$UpstreamWorkflowUrl = "https://raw.githubusercontent.com/dimagi/open-chat-studio/main/.github/workflows/claude-incremental.yml"
 $workflowDir = Join-Path $targetRoot ".github/workflows"
 $workflowFile = Join-Path $workflowDir "claude-incremental.yml"
+$sourceWorkflow = Join-Path $scriptDir "claude-incremental.yml"
 
 if (-not (Test-Path $workflowDir)) {
     New-Item -ItemType Directory -Path $workflowDir -Force | Out-Null
 }
 
-try {
-    $workflowContent = Invoke-RestMethod $UpstreamWorkflowUrl
-    Set-Content -Path $workflowFile -Value $workflowContent -Encoding UTF8
-    Write-Ok "Downloaded workflow from upstream (dimagi/open-chat-studio)"
-    Write-Host "    -> $workflowFile"
-} catch {
-    Write-Fail "Could not download workflow file from upstream."
-    Write-Host "    URL: $UpstreamWorkflowUrl"
-    Write-Host "    Error: $_"
+if (Test-Path $sourceWorkflow) {
+    Copy-Item $sourceWorkflow $workflowFile -Force
+    Write-Ok "Copied workflow from rig to $workflowFile"
+} else {
+    Write-Fail "Could not find claude-incremental.yml in rig directory."
+    Write-Host "    Expected: $sourceWorkflow"
     exit 1
 }
 
