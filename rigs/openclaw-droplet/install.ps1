@@ -6,16 +6,29 @@
     Runs on your LOCAL Windows machine and SSHs into your DigitalOcean
     droplet to set up OpenClaw with WhatsApp, Telegram, and Gmail.
 
+    Features:
+    - Saves progress to a local checkpoint file
+    - Can resume from where it left off if interrupted
+    - Run with -Reset to start fresh
+
     Usage:
         irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex
+
+.PARAMETER Reset
+    Clear checkpoint and start fresh
 
 .NOTES
     Requires: OpenSSH client (built into Windows 10+)
 #>
 
+param(
+    [switch]$Reset
+)
+
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.0.0"
+$ScriptVersion = "1.1.0"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
+$CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
 function Write-Step {
     param([string]$Message)
@@ -38,6 +51,55 @@ function Write-Fail {
     Write-Host "    FAIL: $Message" -ForegroundColor Red
 }
 
+# -------------------------------------------------------
+# Checkpoint functions
+# -------------------------------------------------------
+function Save-Checkpoint {
+    param(
+        [int]$Step,
+        [string]$DropletIP = "",
+        [string]$SSHUser = "root"
+    )
+    $checkpoint = @{
+        Step = $Step
+        DropletIP = $DropletIP
+        SSHUser = $SSHUser
+        Timestamp = (Get-Date).ToString("o")
+    }
+    $checkpoint | ConvertTo-Json | Set-Content -Path $CheckpointFile -Encoding UTF8
+    Write-Ok "Progress saved (step: $Step)"
+}
+
+function Load-Checkpoint {
+    if (Test-Path $CheckpointFile) {
+        try {
+            $checkpoint = Get-Content $CheckpointFile -Raw | ConvertFrom-Json
+            return $checkpoint
+        } catch {
+            return $null
+        }
+    }
+    return $null
+}
+
+function Clear-Checkpoint {
+    if (Test-Path $CheckpointFile) {
+        Remove-Item $CheckpointFile -Force
+    }
+}
+
+# Handle -Reset flag
+if ($Reset) {
+    Clear-Checkpoint
+    Write-Host "Checkpoint cleared. Starting fresh."
+}
+
+# Load existing checkpoint
+$Checkpoint = Load-Checkpoint
+$CurrentStep = if ($Checkpoint) { $Checkpoint.Step } else { 0 }
+$DropletIP = if ($Checkpoint) { $Checkpoint.DropletIP } else { "" }
+$SSHUser = if ($Checkpoint) { $Checkpoint.SSHUser } else { "root" }
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  OpenClaw on DigitalOcean" -ForegroundColor Cyan
@@ -48,117 +110,161 @@ Write-Host "This installer runs on your LOCAL machine and"
 Write-Host "SSHs into your DigitalOcean droplet to set up OpenClaw."
 Write-Host ""
 
+if ($CurrentStep -gt 0) {
+    Write-Host "Resuming from step $CurrentStep" -ForegroundColor Yellow
+    if ($DropletIP) {
+        Write-Host "Droplet: $SSHUser@$DropletIP" -ForegroundColor Yellow
+    }
+    Write-Host "Run with -Reset to start fresh" -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # -------------------------------------------------------
 # Step 1: Check local prerequisites
 # -------------------------------------------------------
-Write-Step "Checking local prerequisites"
+if ($CurrentStep -lt 1) {
+    Write-Step "Step 1/5: Checking local prerequisites"
 
-if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
-    Write-Fail "ssh is not available"
-    Write-Host "    OpenSSH should be built into Windows 10+"
-    Write-Host "    Try: Settings > Apps > Optional Features > OpenSSH Client"
-    exit 1
+    if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
+        Write-Fail "ssh is not available"
+        Write-Host "    OpenSSH should be built into Windows 10+"
+        Write-Host "    Try: Settings > Apps > Optional Features > OpenSSH Client"
+        exit 1
+    }
+    Write-Ok "ssh available"
+
+    Save-Checkpoint -Step 1
+    $CurrentStep = 1
 }
-Write-Ok "ssh available"
 
 # -------------------------------------------------------
 # Step 2: Get droplet information
 # -------------------------------------------------------
-Write-Step "Droplet connection details"
+if ($CurrentStep -lt 2) {
+    Write-Step "Step 2/5: Droplet connection details"
 
-Write-Host ""
-$DropletIP = Read-Host "    Enter your droplet IP address"
+    Write-Host ""
+    $DropletIP = Read-Host "    Enter your droplet IP address"
 
-if ([string]::IsNullOrWhiteSpace($DropletIP)) {
-    Write-Fail "No IP address provided"
-    exit 1
-}
+    if ([string]::IsNullOrWhiteSpace($DropletIP)) {
+        Write-Fail "No IP address provided"
+        exit 1
+    }
 
-$SSHUser = Read-Host "    SSH username (default: root)"
-if ([string]::IsNullOrWhiteSpace($SSHUser)) {
-    $SSHUser = "root"
+    $inputUser = Read-Host "    SSH username (default: root)"
+    if (-not [string]::IsNullOrWhiteSpace($inputUser)) {
+        $SSHUser = $inputUser
+    }
+
+    Save-Checkpoint -Step 2 -DropletIP $DropletIP -SSHUser $SSHUser
+    $CurrentStep = 2
 }
 
 # -------------------------------------------------------
 # Step 3: Test SSH connection
 # -------------------------------------------------------
-Write-Step "Testing SSH connection"
+if ($CurrentStep -lt 3) {
+    Write-Step "Step 3/5: Testing SSH connection"
 
-Write-Host "    Connecting to $SSHUser@$DropletIP..."
+    Write-Host "    Connecting to $SSHUser@$DropletIP..."
 
-try {
-    $testResult = ssh -o ConnectTimeout=10 -o BatchMode=yes "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Key-based auth failed"
+    try {
+        $testResult = ssh -o ConnectTimeout=10 -o BatchMode=yes "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Key-based auth failed"
+        }
+        Write-Ok "SSH connection verified (key-based)"
+    } catch {
+        Write-Warn "Key-based auth failed, will try interactive..."
+        Write-Host "    You may be prompted for a password."
+        
+        $testResult = ssh -o ConnectTimeout=10 "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "Could not connect to $SSHUser@$DropletIP"
+            Write-Host ""
+            Write-Host "    Make sure:"
+            Write-Host "    1. The droplet is running"
+            Write-Host "    2. The IP address is correct"
+            Write-Host "    3. SSH is enabled on the droplet"
+            Write-Host "    4. Your SSH key is added or you know the password"
+            exit 1
+        }
+        Write-Ok "SSH connection verified (password)"
     }
-    Write-Ok "SSH connection verified (key-based)"
-} catch {
-    Write-Warn "Key-based auth failed, will try interactive..."
-    Write-Host "    You may be prompted for a password."
-    
-    $testResult = ssh -o ConnectTimeout=10 "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Fail "Could not connect to $SSHUser@$DropletIP"
-        Write-Host ""
-        Write-Host "    Make sure:"
-        Write-Host "    1. The droplet is running"
-        Write-Host "    2. The IP address is correct"
-        Write-Host "    3. SSH is enabled on the droplet"
-        Write-Host "    4. Your SSH key is added or you know the password"
-        exit 1
-    }
-    Write-Ok "SSH connection verified (password)"
+
+    Save-Checkpoint -Step 3 -DropletIP $DropletIP -SSHUser $SSHUser
+    $CurrentStep = 3
 }
 
 # -------------------------------------------------------
 # Step 4: Download and upload setup script
 # -------------------------------------------------------
-Write-Step "Downloading setup script"
+if ($CurrentStep -lt 4) {
+    Write-Step "Step 4/5: Downloading and uploading setup script"
 
-try {
-    $SetupScript = Invoke-RestMethod "$RigBaseUrl/droplet-setup.sh"
-    Write-Ok "Setup script downloaded"
-} catch {
-    Write-Fail "Could not download droplet-setup.sh"
-    Write-Host "    Error: $_"
-    exit 1
+    try {
+        $SetupScript = Invoke-RestMethod "$RigBaseUrl/droplet-setup.sh"
+        Write-Ok "Setup script downloaded"
+    } catch {
+        Write-Fail "Could not download droplet-setup.sh"
+        Write-Host "    Error: $_"
+        exit 1
+    }
+
+    # Write script to temp file, then upload
+    $TempFile = [System.IO.Path]::GetTempFileName()
+    Set-Content -Path $TempFile -Value $SetupScript -Encoding UTF8
+
+    Write-Host "    Uploading to droplet..."
+
+    # Use scp to upload
+    scp -o ConnectTimeout=10 $TempFile "${SSHUser}@${DropletIP}:/tmp/openclaw-setup.sh" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        # Fallback: pipe through ssh
+        Get-Content $TempFile -Raw | ssh "$SSHUser@$DropletIP" "cat > /tmp/openclaw-setup.sh"
+    }
+
+    # Make executable
+    ssh "$SSHUser@$DropletIP" "chmod +x /tmp/openclaw-setup.sh" 2>&1 | Out-Null
+
+    Remove-Item $TempFile -Force
+    Write-Ok "Setup script uploaded to /tmp/openclaw-setup.sh"
+
+    Save-Checkpoint -Step 4 -DropletIP $DropletIP -SSHUser $SSHUser
+    $CurrentStep = 4
 }
-
-Write-Step "Uploading setup script to droplet"
-
-# Write script to temp file, then upload
-$TempFile = [System.IO.Path]::GetTempFileName()
-Set-Content -Path $TempFile -Value $SetupScript -Encoding UTF8
-
-# Use scp to upload
-scp -o ConnectTimeout=10 $TempFile "${SSHUser}@${DropletIP}:/tmp/openclaw-setup.sh" 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    # Fallback: pipe through ssh
-    Get-Content $TempFile -Raw | ssh "$SSHUser@$DropletIP" "cat > /tmp/openclaw-setup.sh"
-}
-
-# Make executable
-ssh "$SSHUser@$DropletIP" "chmod +x /tmp/openclaw-setup.sh" 2>&1 | Out-Null
-
-Remove-Item $TempFile -Force
-Write-Ok "Setup script uploaded to /tmp/openclaw-setup.sh"
 
 # -------------------------------------------------------
 # Step 5: Execute setup on droplet
 # -------------------------------------------------------
-Write-Step "Running setup on droplet"
+if ($CurrentStep -lt 5) {
+    Write-Step "Step 5/5: Running setup on droplet"
 
-Write-Host ""
-Write-Host "    The setup will now run on your droplet." -ForegroundColor Yellow
-Write-Host "    This may take several minutes." -ForegroundColor Yellow
-Write-Host ""
+    Write-Host ""
+    Write-Host "    The setup will now run on your droplet." -ForegroundColor Yellow
+    Write-Host "    This may take several minutes." -ForegroundColor Yellow
+    Write-Host "    If interrupted, run this script again to resume." -ForegroundColor Yellow
+    Write-Host ""
 
-# Run the setup script interactively
-ssh -t "$SSHUser@$DropletIP" "bash /tmp/openclaw-setup.sh"
+    # Run the setup script interactively
+    # The droplet script has its own checkpointing
+    ssh -t "$SSHUser@$DropletIP" "bash /tmp/openclaw-setup.sh"
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "Setup may not have completed successfully"
+        Write-Host "    Run this script again to retry/resume"
+        exit 1
+    }
+
+    Save-Checkpoint -Step 5 -DropletIP $DropletIP -SSHUser $SSHUser
+    $CurrentStep = 5
+}
 
 # -------------------------------------------------------
-# Done - Print channel setup guide
+# Done - Clear checkpoint and print guide
 # -------------------------------------------------------
+Clear-Checkpoint
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "  Base installation complete!" -ForegroundColor Green
