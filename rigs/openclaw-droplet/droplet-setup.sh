@@ -388,6 +388,10 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         echo ""
         read -p "    Ready to link WhatsApp? (y/n): " wa_ready
         if [[ "$wa_ready" == "y" || "$wa_ready" == "Y" ]]; then
+            echo ""
+            echo -e "${YELLOW}>>> Running: openclaw channels login --channel whatsapp${NC}"
+            echo -e "${YELLOW}>>> A QR code should appear below. Scan it with WhatsApp.${NC}"
+            echo ""
             openclaw channels login --channel whatsapp
         fi
     fi
@@ -404,6 +408,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         echo ""
         read -p "    Enter your Telegram bot token: " tg_token
         if [[ -n "$tg_token" ]]; then
+            echo ""
+            echo -e "${YELLOW}>>> Running: openclaw channels add --channel telegram --token <TOKEN>${NC}"
+            echo ""
             openclaw channels add --channel telegram --token "$tg_token"
             ok "Telegram bot configured"
             echo ""
@@ -415,18 +422,26 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         echo ""
         echo -e "${CYAN}--- Gmail Setup ---${NC}"
         echo ""
-        echo "    Gmail setup requires:"
-        echo "    - A Google Cloud project with billing enabled"
-        echo "    - Gmail API and Pub/Sub API enabled"
-        echo "    - Tailscale connected (for webhook endpoint)"
+        echo "    Gmail setup requires several prerequisites:"
+        echo "    1. A Google Cloud project with billing enabled"
+        echo "    2. Gmail API and Pub/Sub API enabled"
+        echo "    3. Tailscale connected (for webhook endpoint)"
+        echo "    4. gcloud CLI authenticated"
+        echo "    5. gog (Google OAuth) authenticated"
         echo ""
-        echo "    This is more complex. See the README for full instructions."
-        echo ""
-        read -p "    Enter the Gmail address for your assistant: " gmail_addr
-        if [[ -n "$gmail_addr" ]]; then
-            echo ""
-            echo "    Running Gmail webhook setup..."
-            openclaw webhooks gmail setup --account "$gmail_addr" || true
+        echo -e "${YELLOW}    Have you completed all prerequisites? (see README)${NC}"
+        read -p "    Continue with Gmail setup? (y/n): " gmail_ready
+        if [[ "$gmail_ready" != "y" && "$gmail_ready" != "Y" ]]; then
+            echo "    Skipping Gmail setup. Run 'openclaw webhooks gmail setup' later."
+        else
+            read -p "    Enter the Gmail address for your assistant: " gmail_addr
+            if [[ -n "$gmail_addr" ]]; then
+                echo ""
+                echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr${NC}"
+                echo -e "${YELLOW}>>> This command may prompt for OAuth authentication.${NC}"
+                echo -e "${YELLOW}>>> Follow any browser/URL prompts that appear.${NC}"
+                echo ""
+                openclaw webhooks gmail setup --account "$gmail_addr" || true
         fi
     fi
 
