@@ -280,6 +280,144 @@ if [[ "$CURRENT_STEP" -lt 8 ]]; then
 fi
 
 # -------------------------------------------------------
+# Step 9: Verify OpenClaw is working
+# -------------------------------------------------------
+if [[ "$CURRENT_STEP" -lt 9 ]]; then
+    step "Step 9/10: Verifying OpenClaw"
+
+    echo ""
+    echo "    Let's verify OpenClaw is working with a simple test."
+    echo ""
+    
+    # Check if openclaw is running
+    if openclaw status &>/dev/null; then
+        ok "OpenClaw service is running"
+    else
+        warn "OpenClaw service may not be running"
+        echo "    Trying to start it..."
+        openclaw gateway start &>/dev/null || true
+        sleep 2
+    fi
+    
+    # Test with a simple prompt
+    echo ""
+    echo -e "${YELLOW}    Testing with a simple prompt...${NC}"
+    echo ""
+    
+    export NODE_OPTIONS="--max-old-space-size=768"
+    TEST_RESULT=$(echo "Say hello in exactly 3 words" | timeout 30 openclaw chat 2>&1) || true
+    
+    if [[ -n "$TEST_RESULT" ]] && [[ "$TEST_RESULT" != *"error"* ]] && [[ "$TEST_RESULT" != *"Error"* ]]; then
+        ok "OpenClaw responded: $TEST_RESULT"
+        echo ""
+    else
+        warn "OpenClaw test failed or timed out"
+        echo ""
+        echo "    This usually means the API key is not configured."
+        echo ""
+        echo -e "${YELLOW}    Would you like to configure your API key now?${NC}"
+        read -p "    (y/n): " configure_key
+        
+        if [[ "$configure_key" == "y" || "$configure_key" == "Y" ]]; then
+            echo ""
+            echo "    Running onboard again to set API key..."
+            echo ""
+            openclaw onboard
+            
+            # Test again
+            echo ""
+            echo "    Testing again..."
+            TEST_RESULT=$(echo "Say hello in exactly 3 words" | timeout 30 openclaw chat 2>&1) || true
+            if [[ -n "$TEST_RESULT" ]] && [[ "$TEST_RESULT" != *"error"* ]]; then
+                ok "OpenClaw responded: $TEST_RESULT"
+            else
+                warn "Still not working. You may need to check your API key."
+                echo "    Run 'openclaw onboard' to reconfigure."
+            fi
+        fi
+    fi
+
+    save_checkpoint 9
+fi
+
+# -------------------------------------------------------
+# Step 10: Channel setup
+# -------------------------------------------------------
+if [[ "$CURRENT_STEP" -lt 10 ]]; then
+    step "Step 10/10: Channel Setup"
+
+    DROPLET_IP=$(hostname -I | awk '{print $1}')
+
+    echo ""
+    echo -e "${YELLOW}    Which channels would you like to set up?${NC}"
+    echo ""
+    echo "    1) WhatsApp (requires dedicated phone number)"
+    echo "    2) Telegram (requires bot token from @BotFather)"
+    echo "    3) Gmail (requires Google Cloud project)"
+    echo "    4) Skip channel setup for now"
+    echo ""
+    read -p "    Enter choices (e.g., 1,2 or 4 to skip): " channel_choices
+
+    export NODE_OPTIONS="--max-old-space-size=768"
+
+    if [[ "$channel_choices" == *"1"* ]]; then
+        echo ""
+        echo -e "${CYAN}--- WhatsApp Setup ---${NC}"
+        echo ""
+        echo "    You'll need a dedicated phone number for WhatsApp."
+        echo "    Options: Google Voice (free, US), prepaid SIM, or Twilio"
+        echo ""
+        echo "    A QR code will appear. Scan it with WhatsApp on your"
+        echo "    dedicated phone (Settings > Linked Devices > Link a Device)"
+        echo ""
+        read -p "    Ready to link WhatsApp? (y/n): " wa_ready
+        if [[ "$wa_ready" == "y" || "$wa_ready" == "Y" ]]; then
+            openclaw channels login --channel whatsapp
+        fi
+    fi
+
+    if [[ "$channel_choices" == *"2"* ]]; then
+        echo ""
+        echo -e "${CYAN}--- Telegram Setup ---${NC}"
+        echo ""
+        echo "    To create a Telegram bot:"
+        echo "    1. Open Telegram and message @BotFather"
+        echo "    2. Send /newbot"
+        echo "    3. Choose a name and username for your bot"
+        echo "    4. Copy the bot token (format: 123456789:ABCdef...)"
+        echo ""
+        read -p "    Enter your Telegram bot token: " tg_token
+        if [[ -n "$tg_token" ]]; then
+            openclaw channels add --channel telegram --token "$tg_token"
+            ok "Telegram bot configured"
+            echo ""
+            echo "    Your bot is ready! Message it on Telegram to test."
+        fi
+    fi
+
+    if [[ "$channel_choices" == *"3"* ]]; then
+        echo ""
+        echo -e "${CYAN}--- Gmail Setup ---${NC}"
+        echo ""
+        echo "    Gmail setup requires:"
+        echo "    - A Google Cloud project with billing enabled"
+        echo "    - Gmail API and Pub/Sub API enabled"
+        echo "    - Tailscale connected (for webhook endpoint)"
+        echo ""
+        echo "    This is more complex. See the README for full instructions."
+        echo ""
+        read -p "    Enter the Gmail address for your assistant: " gmail_addr
+        if [[ -n "$gmail_addr" ]]; then
+            echo ""
+            echo "    Running Gmail webhook setup..."
+            openclaw webhooks gmail setup --account "$gmail_addr" || true
+        fi
+    fi
+
+    save_checkpoint 10
+fi
+
+# -------------------------------------------------------
 # Done - Clear checkpoint
 # -------------------------------------------------------
 clear_checkpoint
@@ -288,28 +426,27 @@ DROPLET_IP=$(hostname -I | awk '{print $1}')
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  OpenClaw installed successfully!${NC}"
+echo -e "${GREEN}  Setup complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${CYAN}Droplet IP:${NC} $DROPLET_IP"
 echo ""
-echo -e "${CYAN}Next steps:${NC}"
+echo -e "${CYAN}Quick commands:${NC}"
 echo ""
-echo "  1. Access the Control UI (from your local machine):"
-echo "     ssh -L 18789:localhost:18789 root@$DROPLET_IP"
-echo "     Then open: http://localhost:18789"
+echo "  Check status:        openclaw status"
+echo "  Test chat:           echo 'Hello' | openclaw chat"
+echo "  View logs:           openclaw logs --follow"
+echo "  Restart gateway:     openclaw gateway restart"
 echo ""
-echo "  2. Set up messaging channels:"
-echo "     - WhatsApp: openclaw channels login --channel whatsapp"
-echo "     - Telegram: openclaw channels add --channel telegram --token <BOT_TOKEN>"
-echo "     - Gmail: openclaw webhooks gmail setup --account <EMAIL>"
+echo -e "${CYAN}Access Control UI (from your local machine):${NC}"
+echo "  ssh -L 18789:localhost:18789 root@$DROPLET_IP"
+echo "  Then open: http://localhost:18789"
 echo ""
-echo "  3. Check status:"
-echo "     openclaw status"
-echo "     systemctl --user status openclaw-gateway"
+echo -e "${CYAN}Add more channels later:${NC}"
+echo "  WhatsApp:  openclaw channels login --channel whatsapp"
+echo "  Telegram:  openclaw channels add --channel telegram --token <TOKEN>"
+echo "  Gmail:     openclaw webhooks gmail setup --account <EMAIL>"
 echo ""
 echo -e "${CYAN}Documentation:${NC}"
-echo "  - WhatsApp: https://docs.openclaw.ai/channels/whatsapp"
-echo "  - Telegram: https://docs.openclaw.ai/channels/telegram"
-echo "  - Gmail: https://docs.openclaw.ai/automation/gmail-pubsub"
+echo "  https://docs.openclaw.ai"
 echo ""
