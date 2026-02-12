@@ -215,10 +215,10 @@ if [[ "$CURRENT_STEP" -lt 5 ]]; then
 fi
 
 # -------------------------------------------------------
-# Step 6: Install gcloud CLI (for Gmail Pub/Sub)
+# Step 6: Install gcloud CLI and gog (for Gmail Pub/Sub)
 # -------------------------------------------------------
 if [[ "$CURRENT_STEP" -lt 6 ]]; then
-    step "Step 6/8: Installing Google Cloud CLI"
+    step "Step 6/8: Installing Google Cloud CLI and gog"
 
     if command -v gcloud &> /dev/null; then
         ok "gcloud CLI already installed"
@@ -229,6 +229,24 @@ if [[ "$CURRENT_STEP" -lt 6 ]]; then
         curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
         apt-get update && apt-get install -y google-cloud-cli
         ok "gcloud CLI installed"
+    fi
+
+    # Install gog (Google OAuth CLI for Gmail)
+    if command -v gog &> /dev/null; then
+        ok "gog already installed"
+    else
+        echo "    Installing gog (Google OAuth CLI)..."
+        # Download latest release from GitHub
+        GOG_LATEST=$(curl -fsSL "https://api.github.com/repos/steipete/gogcli/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+        if [[ -z "$GOG_LATEST" ]]; then
+            GOG_LATEST="v0.9.0"  # Fallback version
+        fi
+        curl -fsSL "https://github.com/steipete/gogcli/releases/download/${GOG_LATEST}/gog_Linux_x86_64.tar.gz" -o /tmp/gog.tar.gz
+        tar -xzf /tmp/gog.tar.gz -C /tmp
+        mv /tmp/gog /usr/local/bin/gog
+        chmod +x /usr/local/bin/gog
+        rm -f /tmp/gog.tar.gz
+        ok "gog ${GOG_LATEST} installed"
     fi
 
     save_checkpoint 6
