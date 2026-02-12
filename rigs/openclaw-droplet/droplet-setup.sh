@@ -422,26 +422,96 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         echo ""
         echo -e "${CYAN}--- Gmail Setup ---${NC}"
         echo ""
-        echo "    Gmail setup requires several prerequisites:"
-        echo "    1. A Google Cloud project with billing enabled"
-        echo "    2. Gmail API and Pub/Sub API enabled"
-        echo "    3. Tailscale connected (for webhook endpoint)"
-        echo "    4. gcloud CLI authenticated"
-        echo "    5. gog (Google OAuth) authenticated"
+        echo "    Gmail setup requires:"
+        echo "    1. A Google Cloud project with Gmail API and Pub/Sub API enabled"
+        echo "    2. Tailscale connected (for webhook endpoint)"
         echo ""
-        echo -e "${YELLOW}    Have you completed all prerequisites? (see README)${NC}"
-        read -p "    Continue with Gmail setup? (y/n): " gmail_ready
-        if [[ "$gmail_ready" != "y" && "$gmail_ready" != "Y" ]]; then
-            echo "    Skipping Gmail setup. Run 'openclaw webhooks gmail setup' later."
+        echo "    We'll walk through the authentication steps now."
+        echo ""
+
+        # Step 1: Check/authenticate gcloud
+        echo -e "${YELLOW}[Step 1/4] Authenticating gcloud CLI${NC}"
+        if gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | grep -q "@"; then
+            GCLOUD_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1)
+            ok "gcloud already authenticated as $GCLOUD_ACCOUNT"
         else
-            read -p "    Enter the Gmail address for your assistant: " gmail_addr
-            if [[ -n "$gmail_addr" ]]; then
-                echo ""
-                echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr${NC}"
-                echo -e "${YELLOW}>>> This command may prompt for OAuth authentication.${NC}"
-                echo -e "${YELLOW}>>> Follow any browser/URL prompts that appear.${NC}"
-                echo ""
-                openclaw webhooks gmail setup --account "$gmail_addr" || true
+            echo ""
+            echo "    You need to authenticate gcloud. Since this is a headless server,"
+            echo "    we'll use the --no-browser flow."
+            echo ""
+            echo -e "${YELLOW}>>> Running: gcloud auth login --no-browser${NC}"
+            echo ""
+            echo "    1. Copy the URL that appears below"
+            echo "    2. Open it in your browser on your local machine"
+            echo "    3. Sign in and authorize"
+            echo "    4. Copy the authorization code"
+            echo "    5. Paste it back here"
+            echo ""
+            read -p "    Press Enter to continue..." _
+            gcloud auth login --no-browser
+            if [[ $? -ne 0 ]]; then
+                warn "gcloud auth failed. Gmail setup cannot continue."
+                echo "    Run 'gcloud auth login --no-browser' manually later."
+            else
+                ok "gcloud authenticated"
+            fi
+        fi
+
+        # Step 2: Set GCP project
+        echo ""
+        echo -e "${YELLOW}[Step 2/4] Setting Google Cloud project${NC}"
+        CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null)
+        if [[ -n "$CURRENT_PROJECT" && "$CURRENT_PROJECT" != "(unset)" ]]; then
+            echo "    Current project: $CURRENT_PROJECT"
+            read -p "    Use this project? (y/n): " use_current
+            if [[ "$use_current" != "y" && "$use_current" != "Y" ]]; then
+                CURRENT_PROJECT=""
+            fi
+        fi
+        if [[ -z "$CURRENT_PROJECT" || "$CURRENT_PROJECT" == "(unset)" ]]; then
+            echo ""
+            echo "    Available projects:"
+            gcloud projects list --format="table(projectId,name)" 2>/dev/null || echo "    (unable to list projects)"
+            echo ""
+            read -p "    Enter your GCP project ID: " gcp_project
+            if [[ -n "$gcp_project" ]]; then
+                gcloud config set project "$gcp_project"
+                ok "Project set to $gcp_project"
+            fi
+        fi
+
+        # Step 3: Authenticate gog (for Gmail OAuth)
+        echo ""
+        echo -e "${YELLOW}[Step 3/4] Authenticating gog (Gmail OAuth)${NC}"
+        if gog auth status &>/dev/null; then
+            ok "gog already authenticated"
+        else
+            echo ""
+            echo "    gog needs OAuth access to Gmail."
+            echo "    This also uses a --no-browser flow."
+            echo ""
+            echo -e "${YELLOW}>>> Running: gog auth --no-browser${NC}"
+            echo ""
+            read -p "    Press Enter to continue..." _
+            gog auth --no-browser || gog auth
+            if [[ $? -ne 0 ]]; then
+                warn "gog auth may have failed. Check manually with 'gog auth status'"
+            else
+                ok "gog authenticated"
+            fi
+        fi
+
+        # Step 4: Run OpenClaw Gmail setup
+        echo ""
+        echo -e "${YELLOW}[Step 4/4] Running OpenClaw Gmail webhook setup${NC}"
+        read -p "    Enter the Gmail address for your assistant: " gmail_addr
+        if [[ -n "$gmail_addr" ]]; then
+            echo ""
+            echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr${NC}"
+            echo ""
+            openclaw webhooks gmail setup --account "$gmail_addr" || true
+            echo ""
+            ok "Gmail setup attempted. Check output above for any errors."
         fi
     fi
 
