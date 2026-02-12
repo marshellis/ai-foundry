@@ -495,9 +495,74 @@ if ($CurrentStep -lt 2) {
 
             $SSHUser = "root"
         } else {
-            # Manual IP entry
+            # Use existing droplet - list available droplets
             Write-Host ""
-            $DropletIP = Read-Host "    Enter your droplet IP address"
+            Write-Host "    Fetching your existing droplets..." -ForegroundColor Cyan
+            $oldErrorAction = $ErrorActionPreference
+            $ErrorActionPreference = "SilentlyContinue"
+            $droplets = & doctl compute droplet list --format ID,Name,PublicIPv4,Region,Status --no-header 2>&1
+            $dropletsExitCode = $LASTEXITCODE
+            $ErrorActionPreference = $oldErrorAction
+
+            if ($dropletsExitCode -eq 0 -and $droplets -and $droplets.Trim()) {
+                $dropletLines = $droplets -split "`n" | Where-Object { $_.Trim() }
+                
+                if ($dropletLines.Count -gt 0) {
+                    Write-Host ""
+                    Write-Host "    Your existing droplets:" -ForegroundColor Yellow
+                    Write-Host "    ---------------------------------------------------------------"
+                    Write-Host "    #   Name                    IP               Region    Status"
+                    Write-Host "    ---------------------------------------------------------------"
+                    
+                    $dropletIndex = 1
+                    $dropletMap = @{}
+                    foreach ($line in $dropletLines) {
+                        $parts = $line -split '\s+'
+                        if ($parts.Count -ge 4) {
+                            $dId = $parts[0]
+                            $dName = $parts[1]
+                            $dIP = $parts[2]
+                            $dRegion = $parts[3]
+                            $dStatus = if ($parts.Count -ge 5) { $parts[4] } else { "unknown" }
+                            
+                            $displayName = if ($dName.Length -gt 20) { $dName.Substring(0, 17) + "..." } else { $dName.PadRight(20) }
+                            $displayIP = $dIP.PadRight(15)
+                            $displayRegion = $dRegion.PadRight(8)
+                            
+                            Write-Host "    $dropletIndex)  $displayName  $displayIP  $displayRegion  $dStatus"
+                            $dropletMap[$dropletIndex] = @{ ID = $dId; Name = $dName; IP = $dIP }
+                            $dropletIndex++
+                        }
+                    }
+                    Write-Host "    ---------------------------------------------------------------"
+                    Write-Host "    0)  Enter IP manually"
+                    Write-Host ""
+                    
+                    $dropletChoice = Read-Host "    Select droplet number (or 0 for manual)"
+                    
+                    if ($dropletChoice -eq "0" -or [string]::IsNullOrWhiteSpace($dropletChoice)) {
+                        Write-Host ""
+                        $DropletIP = Read-Host "    Enter your droplet IP address"
+                    } elseif ($dropletMap.ContainsKey([int]$dropletChoice)) {
+                        $selected = $dropletMap[[int]$dropletChoice]
+                        $DropletIP = $selected.IP
+                        $DropletId = $selected.ID
+                        $DropletName = $selected.Name
+                        Write-Ok "Selected: $DropletName ($DropletIP)"
+                    } else {
+                        Write-Fail "Invalid selection"
+                        exit 1
+                    }
+                } else {
+                    Write-Info "No existing droplets found"
+                    Write-Host ""
+                    $DropletIP = Read-Host "    Enter your droplet IP address"
+                }
+            } else {
+                Write-Info "Could not fetch droplets"
+                Write-Host ""
+                $DropletIP = Read-Host "    Enter your droplet IP address"
+            }
 
             if ([string]::IsNullOrWhiteSpace($DropletIP)) {
                 Write-Fail "No IP address provided"
