@@ -543,11 +543,13 @@ if ($CurrentStep -lt 2) {
                     if ($dropletChoice -eq "0" -or [string]::IsNullOrWhiteSpace($dropletChoice)) {
                         Write-Host ""
                         $DropletIP = Read-Host "    Enter your droplet IP address"
+                        $SSHUser = "root"
                     } elseif ($dropletMap.ContainsKey([int]$dropletChoice)) {
                         $selected = $dropletMap[[int]$dropletChoice]
                         $DropletIP = $selected.IP
                         $DropletId = $selected.ID
                         $DropletName = $selected.Name
+                        $SSHUser = "root"
                         Write-Ok "Selected: $DropletName ($DropletIP)"
                     } else {
                         Write-Fail "Invalid selection"
@@ -557,21 +559,18 @@ if ($CurrentStep -lt 2) {
                     Write-Info "No existing droplets found"
                     Write-Host ""
                     $DropletIP = Read-Host "    Enter your droplet IP address"
+                    $SSHUser = "root"
                 }
             } else {
                 Write-Info "Could not fetch droplets"
                 Write-Host ""
                 $DropletIP = Read-Host "    Enter your droplet IP address"
+                $SSHUser = "root"
             }
 
             if ([string]::IsNullOrWhiteSpace($DropletIP)) {
                 Write-Fail "No IP address provided"
                 exit 1
-            }
-
-            $inputUser = Read-Host "    SSH username (default: root)"
-            if (-not [string]::IsNullOrWhiteSpace($inputUser)) {
-                $SSHUser = $inputUser
             }
         }
     } else {
