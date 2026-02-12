@@ -1,9 +1,9 @@
 {
   "name": "OpenClaw on DigitalOcean",
   "slug": "openclaw-droplet",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "tagline": "Deploy your personal AI assistant with WhatsApp, Telegram, and Gmail",
-  "description": "A complete setup for OpenClaw on a DigitalOcean droplet. Includes remote installation, swap optimization, and guided setup for WhatsApp (with dedicated number), Telegram bot, and Gmail Pub/Sub integration.",
+  "description": "A complete setup for OpenClaw on a DigitalOcean droplet. Can create the droplet automatically using doctl (DigitalOcean CLI) or connect to an existing one. Includes swap optimization and guided setup for WhatsApp (with dedicated number), Telegram bot, and Gmail Pub/Sub integration.",
   "category": "self-hosted",
   "tags": ["openclaw", "digitalocean", "whatsapp", "telegram", "gmail", "ai-assistant"],
   "difficulty": "intermediate",
@@ -34,12 +34,17 @@
   "prerequisites": [
     {
       "name": "DigitalOcean Account",
-      "description": "Create a $6/month Ubuntu 24.04 droplet",
+      "description": "Account with billing enabled. Droplet can be created automatically via doctl or manually.",
       "link": "https://cloud.digitalocean.com/"
     },
     {
       "name": "SSH Key",
-      "description": "SSH access to your droplet (key or password)"
+      "description": "SSH key added to DigitalOcean (for doctl) or droplet access configured"
+    },
+    {
+      "name": "doctl (optional)",
+      "description": "DigitalOcean CLI for automated droplet creation. Install and run 'doctl auth init'.",
+      "link": "https://docs.digitalocean.com/reference/doctl/how-to/install/"
     },
     {
       "name": "Anthropic or OpenAI API Key",
@@ -58,6 +63,10 @@
   ],
 
   "installerActions": [
+    {
+      "label": "Create or select droplet",
+      "detail": "Optionally create a new droplet via doctl, or enter existing droplet IP"
+    },
     {
       "label": "Connect to droplet via SSH",
       "detail": "Tests SSH connection and uploads setup script"

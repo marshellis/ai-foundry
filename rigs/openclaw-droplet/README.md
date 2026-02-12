@@ -4,6 +4,7 @@ Deploy [OpenClaw](https://openclaw.ai) -- a personal AI assistant -- on a Digita
 
 ## What This Rig Does
 
+- **Creates a droplet automatically** using doctl (DigitalOcean CLI), or connects to an existing one
 - Installs OpenClaw on a $6/month Ubuntu droplet
 - Configures swap for 1GB RAM droplets
 - Sets up systemd for always-on operation
@@ -17,11 +18,45 @@ Before running the installer, you need:
 
 | Requirement | Description | Where to Get It |
 |-------------|-------------|-----------------|
-| DigitalOcean Account | Create a $6/month Ubuntu 24.04 droplet | [cloud.digitalocean.com](https://cloud.digitalocean.com/) |
-| SSH Access | Key-based or password auth to your droplet | Created during droplet setup |
+| DigitalOcean Account | Account with billing enabled | [cloud.digitalocean.com](https://cloud.digitalocean.com/) |
+| doctl (optional) | DigitalOcean CLI for automated droplet creation | [Install doctl](https://docs.digitalocean.com/reference/doctl/how-to/install/) |
+| SSH Key | Added to DigitalOcean (for doctl) or droplet | Created during setup |
 | AI API Key | Anthropic or OpenAI API key | [console.anthropic.com](https://console.anthropic.com/) |
 | Dedicated Phone Number | For WhatsApp (see guide below) | Google Voice, prepaid SIM, etc. |
 | Google Cloud Account | For Gmail Pub/Sub (optional) | [console.cloud.google.com](https://console.cloud.google.com/) |
+
+### Setting Up doctl (Recommended)
+
+The installer can create your droplet automatically if you have doctl installed and authenticated:
+
+**Windows (Scoop):**
+```powershell
+scoop install doctl
+doctl auth init
+```
+
+**macOS (Homebrew):**
+```bash
+brew install doctl
+doctl auth init
+```
+
+**Linux (Snap):**
+```bash
+sudo snap install doctl
+doctl auth init
+```
+
+You'll need a DigitalOcean API token from [cloud.digitalocean.com/account/api/tokens](https://cloud.digitalocean.com/account/api/tokens).
+
+Make sure you have an SSH key added to DigitalOcean:
+```bash
+# List existing keys
+doctl compute ssh-key list
+
+# Or add your key
+doctl compute ssh-key create my-key --public-key-file ~/.ssh/id_rsa.pub
+```
 
 ## Quick Install
 
@@ -38,11 +73,30 @@ curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/ope
 ```
 
 The installer will:
-1. Ask for your droplet IP address
-2. SSH into the droplet
-3. Install OpenClaw and dependencies
-4. Run the onboarding wizard
-5. Print channel setup instructions
+1. Check for doctl and offer to create a new droplet, or ask for an existing droplet IP
+2. If creating: let you pick SSH key, region, and droplet name
+3. SSH into the droplet
+4. Install OpenClaw and dependencies
+5. Run the onboarding wizard
+6. Print channel setup instructions
+
+### Droplet Management with doctl
+
+After installation, you can manage your droplet:
+
+```bash
+# List your droplets
+doctl compute droplet list
+
+# Get droplet details
+doctl compute droplet get <droplet-id>
+
+# Delete droplet (when done)
+doctl compute droplet delete <droplet-id>
+
+# SSH into droplet
+ssh root@<droplet-ip>
+```
 
 ---
 

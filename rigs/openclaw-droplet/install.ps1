@@ -7,6 +7,8 @@
     droplet to set up OpenClaw with WhatsApp, Telegram, and Gmail.
 
     Features:
+    - Can create a new droplet using doctl (DigitalOcean CLI)
+    - Or connect to an existing droplet
     - Saves progress to a local checkpoint file
     - Can resume from where it left off if interrupted
     - Run with -Reset to start fresh
@@ -19,6 +21,7 @@
 
 .NOTES
     Requires: OpenSSH client (built into Windows 10+)
+    Optional: doctl (DigitalOcean CLI) for droplet creation
 #>
 
 param(
@@ -26,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.1.0"
+$ScriptVersion = "1.3.0"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -51,6 +54,11 @@ function Write-Fail {
     Write-Host "    FAIL: $Message" -ForegroundColor Red
 }
 
+function Write-Info {
+    param([string]$Message)
+    Write-Host "    $Message" -ForegroundColor Gray
+}
+
 # -------------------------------------------------------
 # Checkpoint functions
 # -------------------------------------------------------
@@ -58,12 +66,16 @@ function Save-Checkpoint {
     param(
         [int]$Step,
         [string]$DropletIP = "",
-        [string]$SSHUser = "root"
+        [string]$SSHUser = "root",
+        [string]$DropletId = "",
+        [string]$DropletName = ""
     )
     $checkpoint = @{
         Step = $Step
         DropletIP = $DropletIP
         SSHUser = $SSHUser
+        DropletId = $DropletId
+        DropletName = $DropletName
         Timestamp = (Get-Date).ToString("o")
     }
     $checkpoint | ConvertTo-Json | Set-Content -Path $CheckpointFile -Encoding UTF8
@@ -99,6 +111,8 @@ $Checkpoint = Load-Checkpoint
 $CurrentStep = if ($Checkpoint) { $Checkpoint.Step } else { 0 }
 $DropletIP = if ($Checkpoint) { $Checkpoint.DropletIP } else { "" }
 $SSHUser = if ($Checkpoint) { $Checkpoint.SSHUser } else { "root" }
+$DropletId = if ($Checkpoint) { $Checkpoint.DropletId } else { "" }
+$DropletName = if ($Checkpoint) { $Checkpoint.DropletName } else { "" }
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -123,7 +137,7 @@ if ($CurrentStep -gt 0) {
 # Step 1: Check local prerequisites
 # -------------------------------------------------------
 if ($CurrentStep -lt 1) {
-    Write-Step "Step 1/5: Checking local prerequisites"
+    Write-Step "Step 1/6: Checking local prerequisites"
 
     if (-not (Get-Command ssh -ErrorAction SilentlyContinue)) {
         Write-Fail "ssh is not available"
@@ -133,30 +147,389 @@ if ($CurrentStep -lt 1) {
     }
     Write-Ok "ssh available"
 
+    # Check for doctl (optional)
+    $doctlAvailable = $false
+    if (Get-Command doctl -ErrorAction SilentlyContinue) {
+        # Check if authenticated
+        try {
+            $authCheck = doctl account get --format Email --no-header 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                $doctlAvailable = $true
+                Write-Ok "doctl available and authenticated as $authCheck"
+            } else {
+                Write-Warn "doctl found but not authenticated"
+                Write-Info "Run 'doctl auth init' to authenticate"
+            }
+        } catch {
+            Write-Warn "doctl found but not authenticated"
+        }
+    } else {
+        Write-Info "doctl not found (optional - for automated droplet creation)"
+        Write-Info "Install from: https://docs.digitalocean.com/reference/doctl/how-to/install/"
+    }
+
     Save-Checkpoint -Step 1
     $CurrentStep = 1
 }
 
 # -------------------------------------------------------
-# Step 2: Get droplet information
+# Step 2: Get or create droplet
 # -------------------------------------------------------
 if ($CurrentStep -lt 2) {
-    Write-Step "Step 2/5: Droplet connection details"
-
-    Write-Host ""
-    $DropletIP = Read-Host "    Enter your droplet IP address"
-
-    if ([string]::IsNullOrWhiteSpace($DropletIP)) {
-        Write-Fail "No IP address provided"
-        exit 1
+    Write-Step "Step 2/6: Droplet setup"
+    
+    $skipDropletCreation = $false
+    
+    # Check if we already have droplet info from a previous interrupted run
+    if ($DropletIP -and $DropletId) {
+        Write-Host ""
+        Write-Host "    Found existing droplet from previous run:" -ForegroundColor Yellow
+        Write-Host "    IP: $DropletIP"
+        Write-Host "    ID: $DropletId"
+        Write-Host ""
+        $useExisting = Read-Host "    Use this droplet? (y/n)"
+        
+        if ($useExisting -eq "y" -or $useExisting -eq "Y") {
+            Write-Ok "Using existing droplet"
+            $skipDropletCreation = $true
+            $SSHUser = "root"
+        } else {
+            # Clear the old droplet info
+            $DropletIP = ""
+            $DropletId = ""
+            $DropletName = ""
+        }
+    }
+    
+    if (-not $skipDropletCreation) {
+    # Re-check doctl availability and handle authentication
+    $doctlAvailable = $false
+    if (Get-Command doctl -ErrorAction SilentlyContinue) {
+        # Temporarily allow errors so doctl failure doesn't stop the script
+        $oldErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = "SilentlyContinue"
+        $authCheck = & doctl account get --format Email --no-header 2>&1
+        $authExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $oldErrorAction
+        
+        if ($authExitCode -eq 0 -and $authCheck -notmatch "Error:") {
+            $doctlAvailable = $true
+            Write-Ok "doctl authenticated as $authCheck"
+        } else {
+            # doctl exists but not authenticated - offer to authenticate
+            Write-Host ""
+            Write-Host "    doctl is installed but not authenticated." -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "    To authenticate, you need a DigitalOcean API token:"
+            Write-Host "    1. Go to: https://cloud.digitalocean.com/account/api/tokens"
+            Write-Host "    2. Click 'Generate New Token'"
+            Write-Host "    3. Give it a name (e.g., 'doctl') and select read+write scopes"
+            Write-Host "    4. Copy the token (you won't see it again)"
+            Write-Host ""
+            $authChoice = Read-Host "    Would you like to authenticate doctl now? (y/n)"
+            
+            if ($authChoice -eq "y" -or $authChoice -eq "Y") {
+                Write-Host ""
+                Write-Host "    Running 'doctl auth init'..." -ForegroundColor Cyan
+                Write-Host "    Paste your API token when prompted:" -ForegroundColor Yellow
+                Write-Host ""
+                
+                doctl auth init
+                
+                if ($LASTEXITCODE -eq 0) {
+                    # Verify authentication worked
+                    $authCheck = doctl account get --format Email --no-header 2>&1
+                    if ($LASTEXITCODE -eq 0) {
+                        $doctlAvailable = $true
+                        Write-Host ""
+                        Write-Ok "doctl authenticated as $authCheck"
+                    }
+                }
+                
+                if (-not $doctlAvailable) {
+                    Write-Host ""
+                    Write-Warn "Authentication failed. Continuing with manual IP entry."
+                }
+            } else {
+                Write-Info "Skipping doctl authentication. You can enter a droplet IP manually."
+            }
+        }
     }
 
-    $inputUser = Read-Host "    SSH username (default: root)"
-    if (-not [string]::IsNullOrWhiteSpace($inputUser)) {
-        $SSHUser = $inputUser
-    }
+    if ($doctlAvailable) {
+        Write-Host ""
+        Write-Host "    How would you like to proceed?" -ForegroundColor Yellow
+        Write-Host "    1) Create a new droplet (using doctl)"
+        Write-Host "    2) Use an existing droplet (enter IP manually)"
+        Write-Host ""
+        $choice = Read-Host "    Enter choice (1 or 2)"
 
-    Save-Checkpoint -Step 2 -DropletIP $DropletIP -SSHUser $SSHUser
+        if ($choice -eq "1") {
+            # Create new droplet flow
+            Write-Host ""
+            Write-Host "    Creating a new DigitalOcean droplet..." -ForegroundColor Cyan
+            Write-Host ""
+
+            # Get SSH keys
+            Write-Host "    Fetching your SSH keys..."
+            $oldErrorAction = $ErrorActionPreference
+            $ErrorActionPreference = "SilentlyContinue"
+            $sshKeys = & doctl compute ssh-key list --format ID,Name,FingerPrint --no-header 2>&1
+            $sshKeysExitCode = $LASTEXITCODE
+            $ErrorActionPreference = $oldErrorAction
+            
+            if ($sshKeysExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($sshKeys) -or $sshKeys -match "Error:") {
+                Write-Warn "No SSH keys found in your DigitalOcean account"
+                Write-Host ""
+                Write-Host "    You need an SSH key to access your droplet." -ForegroundColor Yellow
+                Write-Host "    Let's add one now."
+                Write-Host ""
+                
+                # Check for local SSH key
+                $sshKeyPath = "$env:USERPROFILE\.ssh\id_rsa.pub"
+                $sshKeyPathEd = "$env:USERPROFILE\.ssh\id_ed25519.pub"
+                $localKeyPath = $null
+                
+                if (Test-Path $sshKeyPathEd) {
+                    $localKeyPath = $sshKeyPathEd
+                    Write-Ok "Found local SSH key: $sshKeyPathEd"
+                } elseif (Test-Path $sshKeyPath) {
+                    $localKeyPath = $sshKeyPath
+                    Write-Ok "Found local SSH key: $sshKeyPath"
+                } else {
+                    Write-Host "    No local SSH key found. Let's create one."
+                    Write-Host ""
+                    $createKey = Read-Host "    Create a new SSH key? (y/n)"
+                    
+                    if ($createKey -eq "y" -or $createKey -eq "Y") {
+                        Write-Host ""
+                        Write-Host "    Creating SSH key..." -ForegroundColor Cyan
+                        
+                        # Create .ssh directory if needed
+                        $sshDir = "$env:USERPROFILE\.ssh"
+                        if (-not (Test-Path $sshDir)) {
+                            New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
+                        }
+                        
+                        # Generate key (non-interactive with empty passphrase)
+                        ssh-keygen -t ed25519 -f "$sshDir\id_ed25519" -N '""' -C "openclaw-droplet"
+                        
+                        if (Test-Path $sshKeyPathEd) {
+                            $localKeyPath = $sshKeyPathEd
+                            Write-Ok "SSH key created: $sshKeyPathEd"
+                        } else {
+                            Write-Fail "Failed to create SSH key"
+                            Write-Host "    You can create one manually with: ssh-keygen -t ed25519"
+                            exit 1
+                        }
+                    } else {
+                        Write-Host ""
+                        Write-Host "    To create an SSH key manually:"
+                        Write-Host "      ssh-keygen -t ed25519"
+                        Write-Host ""
+                        Write-Host "    Then run this installer again."
+                        exit 1
+                    }
+                }
+                
+                # Upload key to DigitalOcean
+                Write-Host ""
+                $keyName = Read-Host "    Name for this key in DigitalOcean (default: openclaw-key)"
+                if ([string]::IsNullOrWhiteSpace($keyName)) {
+                    $keyName = "openclaw-key"
+                }
+                
+                Write-Host "    Uploading SSH key to DigitalOcean..." -ForegroundColor Cyan
+                $oldErrorAction = $ErrorActionPreference
+                $ErrorActionPreference = "SilentlyContinue"
+                $uploadResult = & doctl compute ssh-key import $keyName --public-key-file $localKeyPath 2>&1
+                $uploadExitCode = $LASTEXITCODE
+                $ErrorActionPreference = $oldErrorAction
+                
+                if ($uploadExitCode -eq 0 -and $uploadResult -notmatch "Error:") {
+                    Write-Ok "SSH key uploaded to DigitalOcean"
+                    
+                    # Re-fetch keys
+                    $sshKeys = & doctl compute ssh-key list --format ID,Name,FingerPrint --no-header 2>&1
+                } else {
+                    Write-Fail "Failed to upload SSH key"
+                    Write-Host "    Error: $uploadResult"
+                    Write-Host ""
+                    Write-Host "    You can upload manually at: https://cloud.digitalocean.com/account/security"
+                    exit 1
+                }
+            }
+
+            Write-Host ""
+            Write-Host "    Available SSH keys:" -ForegroundColor Yellow
+            $keyLines = $sshKeys -split "`n" | Where-Object { $_ -match '\S' }
+            $keyIndex = 1
+            $keyMap = @{}
+            foreach ($line in $keyLines) {
+                $parts = $line -split '\s+', 3
+                $keyId = $parts[0]
+                $keyName = if ($parts.Length -gt 1) { $parts[1] } else { "unnamed" }
+                Write-Host "    $keyIndex) $keyName (ID: $keyId)"
+                $keyMap[$keyIndex] = $keyId
+                $keyIndex++
+            }
+
+            Write-Host ""
+            $keyChoice = Read-Host "    Select SSH key number"
+            if (-not $keyMap.ContainsKey([int]$keyChoice)) {
+                Write-Fail "Invalid selection"
+                exit 1
+            }
+            $selectedKeyId = $keyMap[[int]$keyChoice]
+            Write-Ok "Selected SSH key ID: $selectedKeyId"
+
+            # Get regions
+            Write-Host ""
+            Write-Host "    Fetching available regions..."
+            $regions = doctl compute region list --format Slug,Name,Available --no-header 2>&1
+            $availableRegions = $regions -split "`n" | Where-Object { $_ -match 'true$' }
+
+            Write-Host ""
+            Write-Host "    Available regions:" -ForegroundColor Yellow
+            $regionIndex = 1
+            $regionMap = @{}
+            # Show common regions first
+            $commonRegions = @("nyc1", "nyc3", "sfo3", "lon1", "ams3", "sgp1", "fra1", "tor1", "blr1", "syd1")
+            foreach ($slug in $commonRegions) {
+                $match = $availableRegions | Where-Object { $_ -match "^$slug\s" }
+                if ($match) {
+                    $parts = ($match -split '\s+', 3)
+                    $regionSlug = $parts[0]
+                    $regionName = if ($parts.Length -gt 1) { $parts[1] } else { $regionSlug }
+                    Write-Host "    $regionIndex) $regionName ($regionSlug)"
+                    $regionMap[$regionIndex] = $regionSlug
+                    $regionIndex++
+                }
+            }
+
+            Write-Host ""
+            $regionChoice = Read-Host "    Select region number"
+            if (-not $regionMap.ContainsKey([int]$regionChoice)) {
+                Write-Fail "Invalid selection"
+                exit 1
+            }
+            $selectedRegion = $regionMap[[int]$regionChoice]
+            Write-Ok "Selected region: $selectedRegion"
+
+            # Droplet name
+            Write-Host ""
+            $defaultName = "openclaw-$(Get-Date -Format 'yyyyMMdd')"
+            $inputName = Read-Host "    Droplet name (default: $defaultName)"
+            $DropletName = if ([string]::IsNullOrWhiteSpace($inputName)) { $defaultName } else { $inputName }
+
+            # Create the droplet
+            Write-Host ""
+            Write-Host "    Creating droplet '$DropletName'..." -ForegroundColor Yellow
+            Write-Host "    - Size: s-1vcpu-1gb (1 vCPU, 1GB RAM, 25GB SSD) - `$6/month"
+            Write-Host "    - Image: Ubuntu 24.04 LTS"
+            Write-Host "    - Region: $selectedRegion"
+            Write-Host ""
+
+            $createResult = doctl compute droplet create $DropletName `
+                --size s-1vcpu-1gb `
+                --image ubuntu-24-04-x64 `
+                --region $selectedRegion `
+                --ssh-keys $selectedKeyId `
+                --format ID,Name,PublicIPv4,Status `
+                --no-header `
+                --wait 2>&1
+
+            if ($LASTEXITCODE -ne 0) {
+                Write-Fail "Failed to create droplet"
+                Write-Host "    Error: $createResult"
+                exit 1
+            }
+
+            # Parse the result
+            $parts = $createResult -split '\s+'
+            $DropletId = $parts[0]
+            $DropletIP = $parts[2]
+
+            Write-Ok "Droplet created!"
+            Write-Host "    ID: $DropletId"
+            Write-Host "    IP: $DropletIP"
+            
+            # Save checkpoint immediately so we don't lose the droplet info
+            $SSHUser = "root"
+            Save-Checkpoint -Step 1 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
+            Write-Info "Droplet info saved - if interrupted, run script again to resume"
+
+            # Wait for SSH to be ready
+            Write-Host ""
+            Write-Host "    Waiting for SSH to become available..." -ForegroundColor Yellow
+            $maxAttempts = 30
+            $attempt = 0
+            $sshReady = $false
+
+            while ($attempt -lt $maxAttempts -and -not $sshReady) {
+                $attempt++
+                Start-Sleep -Seconds 5
+                Write-Host "    Attempt $attempt/$maxAttempts..." -NoNewline
+
+                $oldErrorAction = $ErrorActionPreference
+                $ErrorActionPreference = "SilentlyContinue"
+                $testResult = & ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o BatchMode=yes "root@$DropletIP" "echo ready" 2>&1
+                $sshExitCode = $LASTEXITCODE
+                $ErrorActionPreference = $oldErrorAction
+                
+                if ($sshExitCode -eq 0 -and $testResult -match "ready") {
+                    $sshReady = $true
+                    Write-Host " Ready!" -ForegroundColor Green
+                } else {
+                    Write-Host " Not yet"
+                }
+            }
+
+            if (-not $sshReady) {
+                Write-Warn "SSH not ready after $maxAttempts attempts"
+                Write-Host "    The droplet may still be initializing."
+                Write-Host "    Try running this script again in a minute."
+                Save-Checkpoint -Step 1 -DropletIP $DropletIP -SSHUser "root" -DropletId $DropletId -DropletName $DropletName
+                exit 1
+            }
+
+            $SSHUser = "root"
+        } else {
+            # Manual IP entry
+            Write-Host ""
+            $DropletIP = Read-Host "    Enter your droplet IP address"
+
+            if ([string]::IsNullOrWhiteSpace($DropletIP)) {
+                Write-Fail "No IP address provided"
+                exit 1
+            }
+
+            $inputUser = Read-Host "    SSH username (default: root)"
+            if (-not [string]::IsNullOrWhiteSpace($inputUser)) {
+                $SSHUser = $inputUser
+            }
+        }
+    } else {
+        # No doctl - manual entry only
+        Write-Host ""
+        Write-Host "    To create a droplet automatically, install doctl:" -ForegroundColor Gray
+        Write-Host "    https://docs.digitalocean.com/reference/doctl/how-to/install/" -ForegroundColor Gray
+        Write-Host ""
+        $DropletIP = Read-Host "    Enter your droplet IP address"
+
+        if ([string]::IsNullOrWhiteSpace($DropletIP)) {
+            Write-Fail "No IP address provided"
+            exit 1
+        }
+
+        $inputUser = Read-Host "    SSH username (default: root)"
+        if (-not [string]::IsNullOrWhiteSpace($inputUser)) {
+            $SSHUser = $inputUser
+        }
+    }
+    } # End of: if (-not $skipDropletCreation)
+
+    Save-Checkpoint -Step 2 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
     $CurrentStep = 2
 }
 
@@ -164,12 +537,12 @@ if ($CurrentStep -lt 2) {
 # Step 3: Test SSH connection
 # -------------------------------------------------------
 if ($CurrentStep -lt 3) {
-    Write-Step "Step 3/5: Testing SSH connection"
+    Write-Step "Step 3/6: Testing SSH connection"
 
     Write-Host "    Connecting to $SSHUser@$DropletIP..."
 
     try {
-        $testResult = ssh -o ConnectTimeout=10 -o BatchMode=yes "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
+        $testResult = ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o BatchMode=yes "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "Key-based auth failed"
         }
@@ -178,7 +551,7 @@ if ($CurrentStep -lt 3) {
         Write-Warn "Key-based auth failed, will try interactive..."
         Write-Host "    You may be prompted for a password."
         
-        $testResult = ssh -o ConnectTimeout=10 "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
+        $testResult = ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "echo 'SSH OK'" 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Fail "Could not connect to $SSHUser@$DropletIP"
             Write-Host ""
@@ -192,45 +565,32 @@ if ($CurrentStep -lt 3) {
         Write-Ok "SSH connection verified (password)"
     }
 
-    Save-Checkpoint -Step 3 -DropletIP $DropletIP -SSHUser $SSHUser
+    Save-Checkpoint -Step 3 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
     $CurrentStep = 3
 }
 
 # -------------------------------------------------------
-# Step 4: Download and upload setup script
+# Step 4: Download setup script on droplet
 # -------------------------------------------------------
 if ($CurrentStep -lt 4) {
-    Write-Step "Step 4/5: Downloading and uploading setup script"
+    Write-Step "Step 4/6: Downloading setup script on droplet"
 
-    try {
-        $SetupScript = Invoke-RestMethod "$RigBaseUrl/droplet-setup.sh"
-        Write-Ok "Setup script downloaded"
-    } catch {
-        Write-Fail "Could not download droplet-setup.sh"
-        Write-Host "    Error: $_"
+    $oldErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    # Download script and convert any Windows CRLF to Unix LF line endings
+    $downloadResult = & ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "curl -fsSL '$RigBaseUrl/droplet-setup.sh' | sed 's/\r$//' > /tmp/openclaw-setup.sh && chmod +x /tmp/openclaw-setup.sh && echo 'DOWNLOAD_OK'" 2>&1
+    $downloadExitCode = $LASTEXITCODE
+    $ErrorActionPreference = $oldErrorAction
+    
+    if ($downloadExitCode -ne 0 -or $downloadResult -notmatch "DOWNLOAD_OK") {
+        Write-Fail "Could not download setup script on droplet"
+        Write-Host "    Error: $downloadResult"
         exit 1
     }
 
-    # Write script to temp file, then upload
-    $TempFile = [System.IO.Path]::GetTempFileName()
-    Set-Content -Path $TempFile -Value $SetupScript -Encoding UTF8
+    Write-Ok "Setup script downloaded to /tmp/openclaw-setup.sh"
 
-    Write-Host "    Uploading to droplet..."
-
-    # Use scp to upload
-    scp -o ConnectTimeout=10 $TempFile "${SSHUser}@${DropletIP}:/tmp/openclaw-setup.sh" 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        # Fallback: pipe through ssh
-        Get-Content $TempFile -Raw | ssh "$SSHUser@$DropletIP" "cat > /tmp/openclaw-setup.sh"
-    }
-
-    # Make executable
-    ssh "$SSHUser@$DropletIP" "chmod +x /tmp/openclaw-setup.sh" 2>&1 | Out-Null
-
-    Remove-Item $TempFile -Force
-    Write-Ok "Setup script uploaded to /tmp/openclaw-setup.sh"
-
-    Save-Checkpoint -Step 4 -DropletIP $DropletIP -SSHUser $SSHUser
+    Save-Checkpoint -Step 4 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
     $CurrentStep = 4
 }
 
@@ -238,7 +598,7 @@ if ($CurrentStep -lt 4) {
 # Step 5: Execute setup on droplet
 # -------------------------------------------------------
 if ($CurrentStep -lt 5) {
-    Write-Step "Step 5/5: Running setup on droplet"
+    Write-Step "Step 5/6: Running setup on droplet"
 
     Write-Host ""
     Write-Host "    The setup will now run on your droplet." -ForegroundColor Yellow
@@ -248,7 +608,7 @@ if ($CurrentStep -lt 5) {
 
     # Run the setup script interactively
     # The droplet script has its own checkpointing
-    ssh -t "$SSHUser@$DropletIP" "bash /tmp/openclaw-setup.sh"
+    ssh -o StrictHostKeyChecking=no -t "$SSHUser@$DropletIP" "bash /tmp/openclaw-setup.sh"
 
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "Setup may not have completed successfully"
@@ -256,8 +616,25 @@ if ($CurrentStep -lt 5) {
         exit 1
     }
 
-    Save-Checkpoint -Step 5 -DropletIP $DropletIP -SSHUser $SSHUser
+    Save-Checkpoint -Step 5 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
     $CurrentStep = 5
+}
+
+# -------------------------------------------------------
+# Step 6: Final verification
+# -------------------------------------------------------
+if ($CurrentStep -lt 6) {
+    Write-Step "Step 6/6: Verifying installation"
+
+    $verifyResult = ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "openclaw --version" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "OpenClaw installed: $verifyResult"
+    } else {
+        Write-Warn "Could not verify OpenClaw installation"
+    }
+
+    Save-Checkpoint -Step 6 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
+    $CurrentStep = 6
 }
 
 # -------------------------------------------------------
@@ -272,6 +649,10 @@ Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Your droplet IP: " -NoNewline -ForegroundColor Cyan
 Write-Host "$DropletIP"
+if ($DropletId) {
+    Write-Host "Droplet ID: " -NoNewline -ForegroundColor Cyan
+    Write-Host "$DropletId"
+}
 Write-Host ""
 Write-Host "To access the Control UI:" -ForegroundColor Cyan
 Write-Host "  ssh -L 18789:localhost:18789 $SSHUser@$DropletIP"
@@ -309,4 +690,21 @@ Write-Host "Documentation:" -ForegroundColor Cyan
 Write-Host "  https://docs.openclaw.ai/channels/whatsapp"
 Write-Host "  https://docs.openclaw.ai/channels/telegram"
 Write-Host "  https://docs.openclaw.ai/automation/gmail-pubsub"
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  Droplet Management (doctl)" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "List your droplets:" -ForegroundColor Gray
+Write-Host "  doctl compute droplet list"
+Write-Host ""
+Write-Host "SSH into droplet:" -ForegroundColor Gray
+Write-Host "  ssh $SSHUser@$DropletIP"
+Write-Host ""
+Write-Host "Delete droplet (when done):" -ForegroundColor Gray
+if ($DropletId) {
+    Write-Host "  doctl compute droplet delete $DropletId"
+} else {
+    Write-Host "  doctl compute droplet delete <droplet-id>"
+}
 Write-Host ""
