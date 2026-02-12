@@ -272,6 +272,8 @@ if [[ "$CURRENT_STEP" -lt 8 ]]; then
     echo ""
     read -p "    Press Enter to start onboarding..."
 
+    # Limit Node.js heap to prevent OOM on 1GB droplets (swap handles overflow)
+    export NODE_OPTIONS="--max-old-space-size=512"
     openclaw onboard --install-daemon
 
     save_checkpoint 8
