@@ -233,20 +233,18 @@ if [[ "$CURRENT_STEP" -lt 6 ]]; then
 
     # Install gog (Google OAuth CLI for Gmail)
     if command -v gog &> /dev/null; then
-        ok "gog already installed"
+        GOG_VER=$(gog --version 2>/dev/null | head -1 || echo "unknown")
+        ok "gog already installed ($GOG_VER)"
     else
         echo "    Installing gog (Google OAuth CLI)..."
-        # Download latest release from GitHub
-        GOG_LATEST=$(curl -fsSL "https://api.github.com/repos/steipete/gogcli/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-        if [[ -z "$GOG_LATEST" ]]; then
-            GOG_LATEST="v0.9.0"  # Fallback version
-        fi
-        curl -fsSL "https://github.com/steipete/gogcli/releases/download/${GOG_LATEST}/gog_Linux_x86_64.tar.gz" -o /tmp/gog.tar.gz
+        # Download release from GitHub (binary is named 'gog' inside the tarball)
+        GOG_VERSION="0.9.0"
+        curl -fsSL "https://github.com/steipete/gogcli/releases/download/v${GOG_VERSION}/gogcli_${GOG_VERSION}_linux_amd64.tar.gz" -o /tmp/gog.tar.gz
         tar -xzf /tmp/gog.tar.gz -C /tmp
         mv /tmp/gog /usr/local/bin/gog
         chmod +x /usr/local/bin/gog
         rm -f /tmp/gog.tar.gz
-        ok "gog ${GOG_LATEST} installed"
+        ok "gog v${GOG_VERSION} installed"
     fi
 
     save_checkpoint 6
