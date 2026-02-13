@@ -296,8 +296,9 @@ fi
 # Step 7: Install OpenClaw
 # -------------------------------------------------------
 # Limit Node.js heap to prevent OOM on 1GB droplets (swap handles overflow).
-# Must be set before Step 7 because the upstream installer runs `openclaw setup`
-# which can exhaust memory during its initial build/setup phase.
+# The upstream installer bundles its own Node.js and may ignore NODE_OPTIONS,
+# so its "setup" phase can OOM on 1GB droplets. That's OK -- the binary gets
+# installed, and Step 8 runs onboarding with NODE_OPTIONS which does work.
 export NODE_OPTIONS="--max-old-space-size=900"
 
 if [[ "$CURRENT_STEP" -lt 7 ]]; then
@@ -306,15 +307,27 @@ if [[ "$CURRENT_STEP" -lt 7 ]]; then
     if command -v openclaw &> /dev/null; then
         OPENCLAW_VERSION=$(openclaw --version 2>/dev/null || echo "unknown")
         ok "OpenClaw already installed ($OPENCLAW_VERSION)"
-        read -p "    Reinstall/upgrade? (y/N) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            curl -fsSL https://openclaw.ai/install.sh | bash
-            ok "OpenClaw reinstalled"
-        fi
     else
+        # The upstream installer may OOM during its "setup" phase on 1GB droplets.
+        # We temporarily disable set -e so the script can continue even if the
+        # installer's post-install setup crashes. The binary itself gets installed
+        # before the setup phase, so we check for it afterwards.
+        set +e
         curl -fsSL https://openclaw.ai/install.sh | bash
-        ok "OpenClaw installed"
+        INSTALL_EXIT=$?
+        set -e
+
+        if command -v openclaw &> /dev/null; then
+            ok "OpenClaw installed ($(openclaw --version 2>/dev/null || echo 'unknown'))"
+            if [[ $INSTALL_EXIT -ne 0 ]]; then
+                warn "Upstream installer exited with code $INSTALL_EXIT (setup phase may have OOM'd)"
+                echo "    This is expected on 1GB droplets -- onboarding will run in the next step"
+            fi
+        else
+            fail "OpenClaw binary not found after install"
+            echo "    The installer may have failed. Check output above."
+            exit 1
+        fi
     fi
 
     save_checkpoint 7
@@ -326,16 +339,17 @@ fi
 if [[ "$CURRENT_STEP" -lt 8 ]]; then
     step "Step 8/8: Running OpenClaw onboarding"
 
-    # Check if onboarding was already completed by checking openclaw status
+    # Check if onboarding was already completed.
+    # NOTE: Do NOT use `openclaw status` here -- it loads the full runtime and
+    # OOMs on 1GB droplets. Instead check for the systemd unit file which is
+    # created by `openclaw onboard --install-daemon`.
     ONBOARDING_DONE=false
-    if openclaw status 2>&1 | grep -q "Gateway service.*running"; then
-        ONBOARDING_DONE=true
-    elif openclaw status 2>&1 | grep -q "Gateway service.*installed"; then
+    if [[ -f "$HOME/.config/systemd/user/openclaw-gateway.service" ]]; then
         ONBOARDING_DONE=true
     fi
 
     if [[ "$ONBOARDING_DONE" == "true" ]]; then
-        ok "OpenClaw onboarding already completed (daemon is configured)"
+        ok "OpenClaw onboarding already completed (daemon service file exists)"
         echo ""
         echo "    To re-run onboarding, use: openclaw onboard --install-daemon"
     else
