@@ -188,17 +188,19 @@ if ($CurrentStep -lt 1) {
         Write-Host "    The Gmail channel requires gcloud CLI on your local machine" -ForegroundColor Yellow
         Write-Host "    to complete authentication from the headless droplet."
         Write-Host ""
-        Write-Host "    Install options:" -ForegroundColor Cyan
-        Write-Host "    1) Chocolatey (recommended): choco install gcloudsdk"
-        Write-Host "    2) Manual download: https://cloud.google.com/sdk/docs/install"
-        Write-Host ""
 
         # Check if chocolatey is available
         $chocoAvailable = $null -ne (Get-Command choco -ErrorAction SilentlyContinue)
 
         if ($chocoAvailable) {
-            $installChoice = Read-Host "    Install gcloud via Chocolatey now? (y/n)"
-            if ($installChoice -eq "y" -or $installChoice -eq "Y") {
+            Write-Host "    How would you like to install gcloud?" -ForegroundColor Cyan
+            Write-Host "    1) Install via Chocolatey (recommended)"
+            Write-Host "    2) Skip -- I'll install it manually later"
+            Write-Host "       Download: https://cloud.google.com/sdk/docs/install"
+            Write-Host ""
+            $installChoice = Read-Host "    Enter choice (1 or 2)"
+
+            if ($installChoice -eq "1") {
                 Write-Host ""
                 Write-Host "    Installing Google Cloud SDK via Chocolatey..." -ForegroundColor Cyan
                 Write-Host "    (This may take a few minutes)" -ForegroundColor Gray
@@ -207,10 +209,10 @@ if ($CurrentStep -lt 1) {
                 # Chocolatey install needs admin rights - check if we have them
                 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
                 if ($isAdmin) {
-                    choco install gcloudsdk -y
+                    choco install gcloudsdk -y --source="https://community.chocolatey.org/api/v2/"
                 } else {
                     Write-Host "    Running elevated install (you may see a UAC prompt)..." -ForegroundColor Yellow
-                    Start-Process -FilePath "choco" -ArgumentList "install gcloudsdk -y" -Verb RunAs -Wait
+                    Start-Process -FilePath "choco" -ArgumentList "install gcloudsdk -y --source=https://community.chocolatey.org/api/v2/" -Verb RunAs -Wait
                 }
 
                 # Refresh PATH so we can find gcloud
@@ -224,12 +226,11 @@ if ($CurrentStep -lt 1) {
                 } else {
                     Write-Warn "gcloud installed but not found in PATH"
                     Write-Host "    You may need to restart your terminal, then run this script again."
-                    Write-Host "    Or add the gcloud bin directory to your PATH manually."
                 }
             }
         } else {
-            Write-Host "    Chocolatey not found. Install gcloud manually from:" -ForegroundColor Gray
-            Write-Host "    https://cloud.google.com/sdk/docs/install" -ForegroundColor Gray
+            Write-Host "    Install gcloud CLI from:" -ForegroundColor Cyan
+            Write-Host "    https://cloud.google.com/sdk/docs/install" -ForegroundColor Cyan
         }
 
         if (-not $gcloudAvailable) {
