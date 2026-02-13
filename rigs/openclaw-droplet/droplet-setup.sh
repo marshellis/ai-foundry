@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.4"
+SCRIPT_VERSION="1.4.5"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -275,6 +275,14 @@ if [[ "$CURRENT_STEP" -lt 6 ]]; then
         chmod +x /usr/local/bin/gog
         rm -f /tmp/gog.tar.gz
         ok "gog v${GOG_VERSION} installed"
+    fi
+
+    # Use plaintext keyring so OpenClaw can access tokens at runtime without a passphrase
+    CURRENT_BACKEND=$(gog auth keyring 2>/dev/null | grep "keyring_backend" | awk '{print $2}' || echo "auto")
+    if [[ "$CURRENT_BACKEND" != "file" ]]; then
+        echo "    Setting gog keyring to plaintext file (required for unattended runtime)..."
+        gog auth keyring file 2>/dev/null || true
+        ok "gog keyring set to file (no passphrase needed)"
     fi
 
     save_checkpoint 6
