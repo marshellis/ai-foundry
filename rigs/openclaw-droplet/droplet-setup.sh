@@ -372,7 +372,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
     echo "    3) Gmail (requires Google Cloud project)"
     echo "    4) Skip channel setup for now"
     echo ""
-    read -p "    Enter choices (e.g., 1,2 or 4 to skip): " channel_choices
+    read -p "    Enter choice: " channel_choices
 
     export NODE_OPTIONS="--max-old-space-size=768"
 
