@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.4.3"
+$ScriptVersion = "1.4.4"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -798,67 +798,14 @@ Clear-Checkpoint
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "  Base installation complete!" -ForegroundColor Green
+Write-Host "  Done!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Your droplet IP: " -NoNewline -ForegroundColor Cyan
-Write-Host "$DropletIP"
-if ($DropletId) {
-    Write-Host "Droplet ID: " -NoNewline -ForegroundColor Cyan
-    Write-Host "$DropletId"
-}
+Write-Host "Droplet: $SSHUser@$DropletIP" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "To access the Control UI:" -ForegroundColor Cyan
-Write-Host "  ssh -L 18789:localhost:18789 $SSHUser@$DropletIP"
-Write-Host "  Then open: http://localhost:18789"
+Write-Host "Quick commands:" -ForegroundColor Cyan
+Write-Host "  ssh $SSHUser@$DropletIP                          SSH into droplet"
+Write-Host "  ssh -L 18789:localhost:18789 $SSHUser@$DropletIP  Control UI (then open http://localhost:18789)"
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Channel Setup Guide" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "1. WhatsApp Setup" -ForegroundColor Yellow
-Write-Host "   First, get a dedicated phone number (see README for options):"
-Write-Host "   - Google Voice (US, free): voice.google.com"
-Write-Host "   - Prepaid SIM card (`$10-20)"
-Write-Host "   - Twilio number (~`$1/month)"
-Write-Host ""
-Write-Host "   Then link WhatsApp:"
-Write-Host "   ssh $SSHUser@$DropletIP"
-Write-Host "   openclaw channels login --channel whatsapp"
-Write-Host "   # Scan the QR code with WhatsApp on your dedicated number"
-Write-Host ""
-Write-Host "2. Telegram Setup" -ForegroundColor Yellow
-Write-Host "   a) Open Telegram and message @BotFather"
-Write-Host "   b) Send /newbot and follow the prompts"
-Write-Host "   c) Copy the bot token (format: 123456789:ABCdef...)"
-Write-Host "   d) Configure OpenClaw:"
-Write-Host "      ssh $SSHUser@$DropletIP"
-Write-Host "      openclaw channels add --channel telegram --token <YOUR_BOT_TOKEN>"
-Write-Host ""
-Write-Host "3. Gmail Setup (requires GCP project)" -ForegroundColor Yellow
-Write-Host "   See the full guide in the README or run:"
-Write-Host "   ssh $SSHUser@$DropletIP"
-Write-Host "   openclaw webhooks gmail setup --account your-assistant@gmail.com"
-Write-Host ""
-Write-Host "Documentation:" -ForegroundColor Cyan
-Write-Host "  https://docs.openclaw.ai/channels/whatsapp"
-Write-Host "  https://docs.openclaw.ai/channels/telegram"
-Write-Host "  https://docs.openclaw.ai/automation/gmail-pubsub"
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Droplet Management (doctl)" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "List your droplets:" -ForegroundColor Gray
-Write-Host "  doctl compute droplet list"
-Write-Host ""
-Write-Host "SSH into droplet:" -ForegroundColor Gray
-Write-Host "  ssh $SSHUser@$DropletIP"
-Write-Host ""
-Write-Host "Delete droplet (when done):" -ForegroundColor Gray
-if ($DropletId) {
-    Write-Host "  doctl compute droplet delete $DropletId"
-} else {
-    Write-Host "  doctl compute droplet delete <droplet-id>"
-}
+Write-Host "Run this script again to re-run channel setup on the droplet." -ForegroundColor Gray
 Write-Host ""

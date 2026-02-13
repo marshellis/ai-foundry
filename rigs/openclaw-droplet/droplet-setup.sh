@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.0"
+SCRIPT_VERSION="1.4.1"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -683,7 +683,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo "$CREDS_INPUT" > "$GOG_CREDS"
                 # Validate it looks like JSON
                 if grep -q "client_id" "$GOG_CREDS" 2>/dev/null; then
-                    ok "OAuth credentials saved to $GOG_CREDS"
+                    # Register with gog properly
+                    gog auth credentials set "$GOG_CREDS" 2>/dev/null || true
+                    ok "OAuth credentials saved and registered with gog"
                 else
                     warn "That doesn't look like valid OAuth credentials JSON"
                     echo "    Expected JSON with 'client_id' field"
@@ -692,7 +694,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             else
                 warn "No credentials entered"
                 echo "    Download the JSON from: https://console.cloud.google.com/apis/credentials"
-                echo "    Then run: gog auth credentials <path-to-credentials.json>"
+                echo "    Then run: gog auth credentials set <path-to-credentials.json>"
             fi
         fi
 
@@ -814,7 +816,8 @@ clear_checkpoint
 DROPLET_IP=$(hostname -I | awk '{print $1}')
 
 # Check if any channels were actually configured
-CHANNELS_CONFIGURED=$(openclaw status 2>&1 | grep -c "Enabled.*true" || echo "0")
+CHANNELS_CONFIGURED=$(openclaw status 2>&1 | grep -c "Enabled.*true" || true)
+CHANNELS_CONFIGURED=${CHANNELS_CONFIGURED:-0}
 
 echo ""
 if [[ "$CHANNELS_CONFIGURED" -gt 0 ]]; then
@@ -831,24 +834,8 @@ else
     echo "    or configure them manually via SSH."
 fi
 echo ""
-echo -e "${CYAN}Droplet IP:${NC} $DROPLET_IP"
-echo ""
 echo -e "${CYAN}Quick commands:${NC}"
-echo ""
-echo "  Check status:        openclaw status"
-echo "  Test chat:           echo 'Hello' | openclaw chat"
-echo "  View logs:           openclaw logs --follow"
-echo "  Restart gateway:     openclaw gateway restart"
-echo ""
-echo -e "${CYAN}Access Control UI (from your local machine):${NC}"
-echo "  ssh -L 18789:localhost:18789 root@$DROPLET_IP"
-echo "  Then open: http://localhost:18789"
-echo ""
-echo -e "${CYAN}Add more channels later:${NC}"
-echo "  WhatsApp:  openclaw channels login --channel whatsapp"
-echo "  Telegram:  openclaw channels add --channel telegram --token <TOKEN>"
-echo "  Gmail:     openclaw webhooks gmail setup --account <EMAIL>"
-echo ""
-echo -e "${CYAN}Documentation:${NC}"
-echo "  https://docs.openclaw.ai"
+echo "  openclaw status          Check status"
+echo "  openclaw agent -m 'Hi' --agent main   Test a prompt"
+echo "  openclaw logs --follow   View logs"
 echo ""
