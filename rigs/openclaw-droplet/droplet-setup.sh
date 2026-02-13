@@ -466,6 +466,11 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         # Step 2: Set GCP project
         echo ""
         echo -e "${YELLOW}[Step 2/4] Setting Google Cloud project${NC}"
+        echo ""
+        echo "    Gmail uses Google Cloud for Pub/Sub notifications."
+        echo "    You need a Google Cloud project with billing enabled."
+        echo ""
+
         CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null)
         if [[ -n "$CURRENT_PROJECT" && "$CURRENT_PROJECT" != "(unset)" ]]; then
             echo "    Current project: $CURRENT_PROJECT"
@@ -474,15 +479,74 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 CURRENT_PROJECT=""
             fi
         fi
+
         if [[ -z "$CURRENT_PROJECT" || "$CURRENT_PROJECT" == "(unset)" ]]; then
-            echo ""
-            echo "    Available projects:"
-            gcloud projects list --format="table(projectId,name)" 2>/dev/null || echo "    (unable to list projects)"
-            echo ""
-            read -p "    Enter your GCP project ID: " gcp_project
-            if [[ -n "$gcp_project" ]]; then
+            # Check for existing projects
+            PROJECT_LIST=$(gcloud projects list --format="value(projectId)" 2>/dev/null)
+
+            if [[ -n "$PROJECT_LIST" ]]; then
+                echo "    Your existing projects:"
+                echo ""
+                gcloud projects list --format="table(projectId,name)" 2>/dev/null
+                echo ""
+                read -p "    Enter a project ID from above (or 'new' to create one): " gcp_project
+            else
+                echo "    No existing Google Cloud projects found."
+                gcp_project="new"
+            fi
+
+            if [[ "$gcp_project" == "new" ]]; then
+                echo ""
+                echo "    Let's create a new Google Cloud project."
+                echo ""
+                DEFAULT_PROJECT_ID="openclaw-assistant-$(date +%Y%m%d)"
+                read -p "    Project ID (default: $DEFAULT_PROJECT_ID): " input_project_id
+                GCP_PROJECT_ID="${input_project_id:-$DEFAULT_PROJECT_ID}"
+
+                echo ""
+                echo -e "${YELLOW}>>> Running: gcloud projects create $GCP_PROJECT_ID${NC}"
+                echo ""
+                gcloud projects create "$GCP_PROJECT_ID" --name="OpenClaw Assistant" 2>&1
+                if [[ $? -eq 0 ]]; then
+                    ok "Project '$GCP_PROJECT_ID' created"
+                    gcp_project="$GCP_PROJECT_ID"
+                else
+                    warn "Could not create project. You may need to create one manually at:"
+                    echo "    https://console.cloud.google.com/projectcreate"
+                    echo ""
+                    read -p "    Enter your project ID after creating it: " gcp_project
+                fi
+            fi
+
+            if [[ -n "$gcp_project" && "$gcp_project" != "new" ]]; then
                 gcloud config set project "$gcp_project"
                 ok "Project set to $gcp_project"
+
+                # Enable required APIs
+                echo ""
+                echo "    Enabling required APIs (Gmail and Pub/Sub)..."
+                echo -e "${YELLOW}>>> Running: gcloud services enable gmail.googleapis.com pubsub.googleapis.com${NC}"
+                gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1
+                if [[ $? -eq 0 ]]; then
+                    ok "Gmail API and Pub/Sub API enabled"
+                else
+                    warn "Could not enable APIs. You may need to enable billing first."
+                    echo ""
+                    echo "    1. Go to: https://console.cloud.google.com/billing"
+                    echo "    2. Link a billing account to your project"
+                    echo "    3. Then run this script again"
+                    echo ""
+                    read -p "    Press Enter after enabling billing (or 'skip' to continue): " billing_response
+                    if [[ "$billing_response" != "skip" ]]; then
+                        echo "    Retrying API enable..."
+                        gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1
+                        if [[ $? -eq 0 ]]; then
+                            ok "Gmail API and Pub/Sub API enabled"
+                        else
+                            warn "APIs still could not be enabled. Gmail setup may fail."
+                        fi
+                    fi
+                fi
             fi
         fi
 
