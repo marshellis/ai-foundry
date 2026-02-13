@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -207,9 +207,38 @@ if [[ "$CURRENT_STEP" -lt 5 ]]; then
         ok "Tailscale installed"
     fi
 
-    echo ""
-    echo -e "${YELLOW}    NOTE: Run 'tailscale up' later to connect to your tailnet${NC}"
-    echo -e "${YELLOW}    This is needed for Gmail Pub/Sub webhook endpoint${NC}"
+    # Check if Tailscale is connected
+    if tailscale status &>/dev/null 2>&1 && ! tailscale status 2>&1 | grep -q "Logged out"; then
+        TS_NAME=$(tailscale status --self --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+        if [[ -n "$TS_NAME" ]]; then
+            ok "Tailscale connected as $TS_NAME"
+        else
+            ok "Tailscale connected"
+        fi
+    else
+        echo ""
+        echo "    Tailscale provides a public HTTPS endpoint for Gmail webhooks."
+        echo "    If you plan to use Gmail, you should connect Tailscale now."
+        echo ""
+        echo "    To get an auth key:"
+        echo "    1. Sign up at: https://tailscale.com/ (free for personal use)"
+        echo "    2. Go to: https://login.tailscale.com/admin/settings/keys"
+        echo "    3. Generate a new auth key"
+        echo "    4. Copy the key"
+        echo ""
+        read -p "    Enter Tailscale auth key (or press Enter to skip): " ts_key
+        if [[ -n "$ts_key" ]]; then
+            echo ""
+            echo -e "${YELLOW}>>> Running: tailscale up --authkey <KEY>${NC}"
+            if tailscale up --authkey "$ts_key" 2>&1; then
+                ok "Tailscale connected"
+            else
+                warn "Tailscale auth failed. Run 'tailscale up --authkey <KEY>' manually."
+            fi
+        else
+            echo -e "${YELLOW}    Skipped. Run 'tailscale up' later if you need Gmail.${NC}"
+        fi
+    fi
 
     save_checkpoint 5
 fi
