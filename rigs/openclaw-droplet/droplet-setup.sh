@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.8"
+SCRIPT_VERSION="1.3.9"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -481,7 +481,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         echo ""
 
         # Step 1: Ensure Tailscale is connected
-        echo -e "${YELLOW}[Step 1/5] Connecting Tailscale${NC}"
+        echo -e "${YELLOW}[Step 1/6] Connecting Tailscale${NC}"
         if tailscale status &>/dev/null 2>&1 && ! tailscale status 2>&1 | grep -q "Logged out"; then
             TS_NAME=$(tailscale status --self --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
             if [[ -n "$TS_NAME" ]]; then
@@ -525,7 +525,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 
         # Step 2: Check/authenticate gcloud
         echo ""
-        echo -e "${YELLOW}[Step 2/5] Authenticating gcloud CLI${NC}"
+        echo -e "${YELLOW}[Step 2/6] Authenticating gcloud CLI${NC}"
         if gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | grep -q "@"; then
             GCLOUD_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1)
             ok "gcloud already authenticated as $GCLOUD_ACCOUNT"
@@ -559,7 +559,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 
         # Step 3: Set GCP project
         echo ""
-        echo -e "${YELLOW}[Step 3/5] Setting Google Cloud project${NC}"
+        echo -e "${YELLOW}[Step 3/6] Setting Google Cloud project${NC}"
         echo ""
         echo "    Gmail uses Google Cloud for Pub/Sub notifications."
         echo "    You need a Google Cloud project with billing enabled."
@@ -643,7 +643,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 
         # Step 4: Authenticate gog (for Gmail OAuth)
         echo ""
-        echo -e "${YELLOW}[Step 4/5] Authenticating gog (Gmail OAuth)${NC}"
+        echo -e "${YELLOW}[Step 4/6] Authenticating gog (Gmail OAuth)${NC}"
         if gog auth status &>/dev/null; then
             ok "gog already authenticated"
         else
@@ -661,35 +661,85 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Step 5: Run OpenClaw Gmail setup
+        # Step 5a: Enable Tailscale Funnel
         echo ""
-        echo -e "${YELLOW}[Step 5/5] Running OpenClaw Gmail webhook setup${NC}"
+        echo -e "${YELLOW}[Step 5/6] Enabling Tailscale Funnel${NC}"
+        echo ""
+        echo "    OpenClaw needs Tailscale Funnel to receive Gmail webhooks."
+        echo "    Checking if Funnel is enabled..."
+        echo ""
 
-        # Get the current GCP project ID to pass to openclaw
-        GCP_PROJECT=$(gcloud config get-value project 2>/dev/null || echo "")
-        if [[ -z "$GCP_PROJECT" || "$GCP_PROJECT" == "(unset)" ]]; then
-            echo ""
-            warn "No GCP project set. OpenClaw needs a project ID for Gmail."
-            read -p "    Enter your GCP project ID: " GCP_PROJECT
+        # Test if funnel works by trying a dry run
+        if tailscale funnel status &>/dev/null 2>&1; then
+            ok "Tailscale Funnel is available"
         else
-            echo "    Using GCP project: $GCP_PROJECT"
+            echo "    Tailscale Funnel may not be enabled on your tailnet."
+            echo ""
+            echo "    To enable it:"
+            echo "    1. Go to: https://login.tailscale.com/admin/dns"
+            echo "    2. Enable HTTPS Certificates"
+            echo "    3. Go to: https://login.tailscale.com/admin/acls"
+            echo "    4. Add Funnel to your ACL policy (or use the link below)"
+            echo ""
+            echo "    If you see a specific URL in the error output, visit that URL to enable Funnel."
+            echo ""
+            read -p "    Press Enter after enabling Funnel (or 'skip' to skip Gmail): " funnel_response
+            if [[ "$funnel_response" == "skip" ]]; then
+                echo "    Skipping Gmail setup."
+                # Set a flag to skip step 6
+                SKIP_GMAIL=true
+            fi
         fi
 
-        read -p "    Enter the Gmail address for your assistant: " gmail_addr
-        if [[ -n "$gmail_addr" && -n "$GCP_PROJECT" ]]; then
+        # Step 6: Run OpenClaw Gmail setup
+        if [[ "${SKIP_GMAIL:-false}" != "true" ]]; then
             echo ""
-            echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr --project $GCP_PROJECT${NC}"
-            echo ""
-            openclaw webhooks gmail setup --account "$gmail_addr" --project "$GCP_PROJECT" || true
-            echo ""
-            ok "Gmail setup attempted. Check output above for any errors."
-        elif [[ -n "$gmail_addr" ]]; then
-            echo ""
-            echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr${NC}"
-            echo ""
-            openclaw webhooks gmail setup --account "$gmail_addr" || true
-            echo ""
-            ok "Gmail setup attempted. Check output above for any errors."
+            echo -e "${YELLOW}[Step 6/6] Running OpenClaw Gmail webhook setup${NC}"
+
+            # Get the current GCP project ID to pass to openclaw
+            GCP_PROJECT=$(gcloud config get-value project 2>/dev/null || echo "")
+            if [[ -z "$GCP_PROJECT" || "$GCP_PROJECT" == "(unset)" ]]; then
+                echo ""
+                warn "No GCP project set. OpenClaw needs a project ID for Gmail."
+                read -p "    Enter your GCP project ID: " GCP_PROJECT
+            else
+                echo "    Using GCP project: $GCP_PROJECT"
+            fi
+
+            read -p "    Enter the Gmail address for your assistant: " gmail_addr
+            if [[ -n "$gmail_addr" && -n "$GCP_PROJECT" ]]; then
+                echo ""
+                echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr --project $GCP_PROJECT${NC}"
+                echo ""
+                if openclaw webhooks gmail setup --account "$gmail_addr" --project "$GCP_PROJECT" 2>&1; then
+                    ok "Gmail webhook configured successfully"
+                    GMAIL_OK=true
+                else
+                    GMAIL_OUTPUT=$(openclaw webhooks gmail setup --account "$gmail_addr" --project "$GCP_PROJECT" 2>&1 || true)
+                    warn "Gmail setup failed"
+                    echo ""
+                    if echo "$GMAIL_OUTPUT" | grep -q "funnel"; then
+                        echo "    It looks like Tailscale Funnel is not enabled."
+                        echo "    Visit the Funnel URL shown above and enable it, then run:"
+                        echo "    openclaw webhooks gmail setup --account $gmail_addr --project $GCP_PROJECT"
+                    else
+                        echo "    Check the error output above."
+                        echo "    To retry manually:"
+                        echo "    openclaw webhooks gmail setup --account $gmail_addr --project $GCP_PROJECT"
+                    fi
+                fi
+            elif [[ -n "$gmail_addr" ]]; then
+                echo ""
+                echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr${NC}"
+                echo ""
+                if openclaw webhooks gmail setup --account "$gmail_addr" 2>&1; then
+                    ok "Gmail webhook configured successfully"
+                    GMAIL_OK=true
+                else
+                    warn "Gmail setup failed. Check the error output above."
+                    echo "    To retry: openclaw webhooks gmail setup --account $gmail_addr"
+                fi
+            fi
         fi
 
         fi # end: Tailscale connected check
@@ -705,10 +755,23 @@ clear_checkpoint
 
 DROPLET_IP=$(hostname -I | awk '{print $1}')
 
+# Check if any channels were actually configured
+CHANNELS_CONFIGURED=$(openclaw status 2>&1 | grep -c "Enabled.*true" || echo "0")
+
 echo ""
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  Setup complete!${NC}"
-echo -e "${GREEN}========================================${NC}"
+if [[ "$CHANNELS_CONFIGURED" -gt 0 ]]; then
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  Setup complete!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+else
+    echo -e "${YELLOW}========================================${NC}"
+    echo -e "${YELLOW}  Setup finished (no channels configured)${NC}"
+    echo -e "${YELLOW}========================================${NC}"
+    echo ""
+    echo "    OpenClaw is running but no messaging channels are active."
+    echo "    Run this script again and select channels to set up,"
+    echo "    or configure them manually via SSH."
+fi
 echo ""
 echo -e "${CYAN}Droplet IP:${NC} $DROPLET_IP"
 echo ""
