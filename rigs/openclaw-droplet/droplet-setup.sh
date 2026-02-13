@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.3.8"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -412,15 +412,21 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 
     DROPLET_IP=$(hostname -I | awk '{print $1}')
 
-    echo ""
-    echo -e "${YELLOW}    Which channels would you like to set up?${NC}"
-    echo ""
-    echo "    1) WhatsApp (requires dedicated phone number)"
-    echo "    2) Telegram (requires bot token from @BotFather)"
-    echo "    3) Gmail (requires Google Cloud project)"
-    echo "    4) Skip channel setup for now"
-    echo ""
-    read -p "    Enter choice: " channel_choices
+    channel_choices=""
+    while [[ -z "$channel_choices" ]]; do
+        echo ""
+        echo -e "${YELLOW}    Which channels would you like to set up?${NC}"
+        echo ""
+        echo "    1) WhatsApp (requires dedicated phone number)"
+        echo "    2) Telegram (requires bot token from @BotFather)"
+        echo "    3) Gmail (requires Google Cloud project)"
+        echo "    4) Skip channel setup for now"
+        echo ""
+        read -p "    Enter choice (1-4): " channel_choices
+        if [[ -z "$channel_choices" ]]; then
+            echo -e "${YELLOW}    Please enter a choice.${NC}"
+        fi
+    done
 
     export NODE_OPTIONS="--max-old-space-size=768"
 
