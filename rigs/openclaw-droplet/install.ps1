@@ -724,8 +724,9 @@ if ($CurrentStep -lt 5) {
 
     $oldErrorAction = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
-    # Download script and convert any Windows CRLF to Unix LF line endings
-    $downloadResult = & ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "curl -fsSL '$RigBaseUrl/droplet-setup.sh' | sed 's/\r$//' > /tmp/openclaw-setup.sh && chmod +x /tmp/openclaw-setup.sh && echo 'DOWNLOAD_OK'" 2>&1
+    # Download script with cache-bust and convert any Windows CRLF to Unix LF line endings
+    $cacheBust = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $downloadResult = & ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "curl -fsSL '$RigBaseUrl/droplet-setup.sh?cb=$cacheBust' | sed 's/\r$//' > /tmp/openclaw-setup.sh && chmod +x /tmp/openclaw-setup.sh && echo 'DOWNLOAD_OK'" 2>&1
     $downloadExitCode = $LASTEXITCODE
     $ErrorActionPreference = $oldErrorAction
     
