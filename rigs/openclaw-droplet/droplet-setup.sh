@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -279,11 +279,11 @@ fi
 if [[ "$CURRENT_STEP" -lt 8 ]]; then
     step "Step 8/8: Running OpenClaw onboarding"
 
-    # Check if onboarding was already completed by looking for the daemon service
+    # Check if onboarding was already completed by checking openclaw status
     ONBOARDING_DONE=false
-    if systemctl is-enabled openclaw &>/dev/null 2>&1 || systemctl is-active openclaw &>/dev/null 2>&1; then
+    if openclaw status 2>&1 | grep -q "Gateway service.*running"; then
         ONBOARDING_DONE=true
-    elif [[ -f /etc/systemd/system/openclaw.service ]]; then
+    elif openclaw status 2>&1 | grep -q "Gateway service.*installed"; then
         ONBOARDING_DONE=true
     fi
 
