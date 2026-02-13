@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.6"
+SCRIPT_VERSION="1.4.7"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -706,15 +706,22 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Ensure gog uses plaintext keyring (no passphrase prompt at runtime)
-        # This must run here (not just in step 6) in case we're resuming past step 6
+        # Ensure gog uses file keyring with a fixed password so it never prompts
+        # The file backend still encrypts but reads password from GOG_KEYRING_PASSWORD env var
         CURRENT_BACKEND=$(gog auth keyring 2>/dev/null | grep "keyring_backend	" | awk '{print $2}' || echo "unknown")
         if [[ "$CURRENT_BACKEND" != "file" ]]; then
-            echo "    Setting gog keyring to plaintext (required for unattended runtime)..."
+            echo "    Setting gog keyring to file backend..."
             gog auth keyring file 2>/dev/null || true
-            # Remove old encrypted keyring directory if it exists
+            # Remove old encrypted keyring data if it exists
             rm -rf /root/.config/gogcli/keyring 2>/dev/null || true
-            ok "gog keyring set to plaintext file"
+        fi
+        # Set the keyring password for this session and persist it for OpenClaw runtime
+        export GOG_KEYRING_PASSWORD="openclaw"
+        if ! grep -q "GOG_KEYRING_PASSWORD" /etc/environment 2>/dev/null; then
+            echo 'GOG_KEYRING_PASSWORD=openclaw' >> /etc/environment
+            ok "gog keyring password set (persisted to /etc/environment)"
+        else
+            ok "gog keyring password already configured"
         fi
 
         # Now authenticate gog for the specific Gmail account
