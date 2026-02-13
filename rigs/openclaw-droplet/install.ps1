@@ -102,18 +102,8 @@ function Clear-Checkpoint {
 
 # Handle -Reset flag
 if ($Reset) {
-    # If we have droplet info, keep it but reset to re-run the droplet script
-    $existingCheckpoint = Load-Checkpoint
-    if ($existingCheckpoint -and $existingCheckpoint.DropletIP) {
-        # Reset to step 3 so we re-download and re-run the droplet script
-        # but skip re-doing local prereqs and droplet selection
-        Save-Checkpoint -Step 3 -DropletIP $existingCheckpoint.DropletIP -SSHUser $existingCheckpoint.SSHUser -DropletId $existingCheckpoint.DropletId -DropletName $existingCheckpoint.DropletName
-        Write-Host "Reset: will re-run droplet setup script with --reset" -ForegroundColor Yellow
-        Write-Host "       (keeping droplet: $($existingCheckpoint.DropletIP))" -ForegroundColor Yellow
-    } else {
-        Clear-Checkpoint
-        Write-Host "Checkpoint cleared. Starting fresh."
-    }
+    Clear-Checkpoint
+    Write-Host "Checkpoint cleared. Starting fresh."
 }
 
 # Load existing checkpoint
