@@ -569,8 +569,26 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         # Step 4: Run OpenClaw Gmail setup
         echo ""
         echo -e "${YELLOW}[Step 4/4] Running OpenClaw Gmail webhook setup${NC}"
+
+        # Get the current GCP project ID to pass to openclaw
+        GCP_PROJECT=$(gcloud config get-value project 2>/dev/null || echo "")
+        if [[ -z "$GCP_PROJECT" || "$GCP_PROJECT" == "(unset)" ]]; then
+            echo ""
+            warn "No GCP project set. OpenClaw needs a project ID for Gmail."
+            read -p "    Enter your GCP project ID: " GCP_PROJECT
+        else
+            echo "    Using GCP project: $GCP_PROJECT"
+        fi
+
         read -p "    Enter the Gmail address for your assistant: " gmail_addr
-        if [[ -n "$gmail_addr" ]]; then
+        if [[ -n "$gmail_addr" && -n "$GCP_PROJECT" ]]; then
+            echo ""
+            echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr --project $GCP_PROJECT${NC}"
+            echo ""
+            openclaw webhooks gmail setup --account "$gmail_addr" --project "$GCP_PROJECT" || true
+            echo ""
+            ok "Gmail setup attempted. Check output above for any errors."
+        elif [[ -n "$gmail_addr" ]]; then
             echo ""
             echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr${NC}"
             echo ""
