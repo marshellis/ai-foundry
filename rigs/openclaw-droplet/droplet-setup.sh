@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.3"
+SCRIPT_VERSION="1.5.4"
 
 # Set gog keyring password so file-backend never prompts interactively
 # This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
@@ -703,7 +703,8 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         fi
 
         # Check if gog is already fully authenticated with all required services
-        EXISTING_GOG_EMAIL=$(gog auth list --plain 2>/dev/null | grep "gmail" | awk '{print $1}' | head -1)
+        # NOTE: grep exits 1 when no match -- must guard with || true to survive set -euo pipefail
+        EXISTING_GOG_EMAIL=$(gog auth list --plain 2>/dev/null | grep "gmail" | awk '{print $1}' | head -1 || true)
         GOG_ALL_SERVICES=false
         if [[ -n "$EXISTING_GOG_EMAIL" ]]; then
             GOG_SERVICES=$(gog auth list --plain 2>/dev/null | grep "$EXISTING_GOG_EMAIL" || echo "")
