@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.9"
+SCRIPT_VERSION="1.5.0"
 
 # Set gog keyring password so file-backend never prompts interactively
 # This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
@@ -576,12 +576,25 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         # Step 3: Set GCP project
         echo ""
         echo -e "${YELLOW}[Step 3/6] Setting Google Cloud project${NC}"
+
+        CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null)
+        # Check if project is set and required APIs are already enabled
+        APIS_OK=false
+        if [[ -n "$CURRENT_PROJECT" && "$CURRENT_PROJECT" != "(unset)" ]]; then
+            ENABLED_APIS=$(gcloud services list --enabled --format="value(config.name)" 2>/dev/null || echo "")
+            if echo "$ENABLED_APIS" | grep -q "gmail.googleapis.com" && echo "$ENABLED_APIS" | grep -q "pubsub.googleapis.com"; then
+                APIS_OK=true
+            fi
+        fi
+
+        if [[ "$APIS_OK" == "true" ]]; then
+            ok "Project '$CURRENT_PROJECT' already configured with Gmail and Pub/Sub APIs"
+        else
         echo ""
         echo "    Gmail uses Google Cloud for Pub/Sub notifications."
         echo "    You need a Google Cloud project with billing enabled."
         echo ""
 
-        CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null)
         if [[ -n "$CURRENT_PROJECT" && "$CURRENT_PROJECT" != "(unset)" ]]; then
             echo "    Current project: $CURRENT_PROJECT"
             read -p "    Use this project? (y/n): " use_current
@@ -656,10 +669,29 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 fi
             fi
         fi
+        fi # end: APIS_OK else block
 
         # Step 4: Set up gog OAuth credentials and authenticate
         echo ""
         echo -e "${YELLOW}[Step 4/6] Setting up Gmail OAuth (gog)${NC}"
+
+        # Ensure keyring is set up first (needed before any gog auth commands)
+        CURRENT_BACKEND=$(gog auth keyring 2>/dev/null | grep "keyring_backend	" | awk '{print $2}' || echo "unknown")
+        if [[ "$CURRENT_BACKEND" != "file" ]]; then
+            gog auth keyring file 2>/dev/null || true
+            rm -rf /root/.config/gogcli/keyring 2>/dev/null || true
+        fi
+        export GOG_KEYRING_PASSWORD="openclaw"
+        if ! grep -q "GOG_KEYRING_PASSWORD" /etc/environment 2>/dev/null; then
+            echo 'GOG_KEYRING_PASSWORD=openclaw' >> /etc/environment
+        fi
+
+        # Check if gog is already fully authenticated with gmail service
+        EXISTING_GOG_EMAIL=$(gog auth list --plain 2>/dev/null | grep "gmail" | awk '{print $1}' | head -1)
+        if [[ -n "$EXISTING_GOG_EMAIL" ]]; then
+            ok "gog already authenticated for $EXISTING_GOG_EMAIL (gmail)"
+            gmail_addr="$EXISTING_GOG_EMAIL"
+        else
 
         # Check if credentials file exists
         GOG_CREDS="/root/.config/gogcli/credentials.json"
@@ -714,26 +746,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Ensure gog uses file keyring with a fixed password so it never prompts
-        # The file backend still encrypts but reads password from GOG_KEYRING_PASSWORD env var
-        CURRENT_BACKEND=$(gog auth keyring 2>/dev/null | grep "keyring_backend	" | awk '{print $2}' || echo "unknown")
-        if [[ "$CURRENT_BACKEND" != "file" ]]; then
-            echo "    Setting gog keyring to file backend..."
-            gog auth keyring file 2>/dev/null || true
-            # Remove old encrypted keyring data if it exists
-            rm -rf /root/.config/gogcli/keyring 2>/dev/null || true
-        fi
-        # Set the keyring password for this session and persist it for OpenClaw runtime
-        export GOG_KEYRING_PASSWORD="openclaw"
-        if ! grep -q "GOG_KEYRING_PASSWORD" /etc/environment 2>/dev/null; then
-            echo 'GOG_KEYRING_PASSWORD=openclaw' >> /etc/environment
-            ok "gog keyring password set (persisted to /etc/environment)"
-        else
-            ok "gog keyring password already configured"
-        fi
-
         # Now authenticate gog for the specific Gmail account
-        # We need the email address here, so ask for it early
         echo ""
         read -p "    Enter the Gmail address for your assistant: " gmail_addr
 
@@ -742,6 +755,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             if gog auth list 2>/dev/null | grep -q "$gmail_addr"; then
                 ok "gog already authenticated for $gmail_addr"
             else
+                GOG_CREDS="/root/.config/gogcli/credentials.json"
                 if [[ -f "$GOG_CREDS" ]]; then
                     echo ""
                     echo "    Authenticating gog for $gmail_addr..."
@@ -768,6 +782,8 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 fi
             fi
         fi
+
+        fi # end: EXISTING_GOG_EMAIL else block
 
         # Step 5a: Enable Tailscale Funnel
         echo ""
