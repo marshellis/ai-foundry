@@ -582,13 +582,13 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         APIS_OK=false
         if [[ -n "$CURRENT_PROJECT" && "$CURRENT_PROJECT" != "(unset)" ]]; then
             ENABLED_APIS=$(gcloud services list --enabled --format="value(config.name)" 2>/dev/null || echo "")
-            if echo "$ENABLED_APIS" | grep -q "gmail.googleapis.com" && echo "$ENABLED_APIS" | grep -q "pubsub.googleapis.com"; then
+            if echo "$ENABLED_APIS" | grep -q "gmail.googleapis.com" && echo "$ENABLED_APIS" | grep -q "pubsub.googleapis.com" && echo "$ENABLED_APIS" | grep -q "docs.googleapis.com" && echo "$ENABLED_APIS" | grep -q "drive.googleapis.com"; then
                 APIS_OK=true
             fi
         fi
 
         if [[ "$APIS_OK" == "true" ]]; then
-            ok "Project '$CURRENT_PROJECT' already configured with Gmail and Pub/Sub APIs"
+            ok "Project '$CURRENT_PROJECT' already configured with Gmail, Pub/Sub, Docs, and Drive APIs"
         else
         echo ""
         echo "    Gmail uses Google Cloud for Pub/Sub notifications."
@@ -646,10 +646,10 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 
                 # Enable required APIs
                 echo ""
-                echo "    Enabling required APIs (Gmail and Pub/Sub)..."
-                echo -e "${YELLOW}>>> Running: gcloud services enable gmail.googleapis.com pubsub.googleapis.com${NC}"
-                if gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1; then
-                    ok "Gmail API and Pub/Sub API enabled"
+                echo "    Enabling required APIs (Gmail, Pub/Sub, Docs, Drive)..."
+                echo -e "${YELLOW}>>> Running: gcloud services enable gmail.googleapis.com pubsub.googleapis.com docs.googleapis.com drive.googleapis.com${NC}"
+                if gcloud services enable gmail.googleapis.com pubsub.googleapis.com docs.googleapis.com drive.googleapis.com 2>&1; then
+                    ok "Gmail, Pub/Sub, Docs, and Drive APIs enabled"
                 else
                     warn "Could not enable APIs. You may need to enable billing first."
                     echo ""
@@ -660,8 +660,8 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                     read -p "    Press Enter after enabling billing (or 'skip' to continue): " billing_response
                     if [[ "$billing_response" != "skip" ]]; then
                         echo "    Retrying API enable..."
-                        if gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1; then
-                            ok "Gmail API and Pub/Sub API enabled"
+                        if gcloud services enable gmail.googleapis.com pubsub.googleapis.com docs.googleapis.com drive.googleapis.com 2>&1; then
+                            ok "Gmail, Pub/Sub, Docs, and Drive APIs enabled"
                         else
                             warn "APIs still could not be enabled. Gmail setup may fail."
                         fi
@@ -686,11 +686,47 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo 'GOG_KEYRING_PASSWORD=openclaw' >> /etc/environment
         fi
 
-        # Check if gog is already fully authenticated with gmail service
+        # Check if gog is already fully authenticated with gmail + docs + drive services
         EXISTING_GOG_EMAIL=$(gog auth list --plain 2>/dev/null | grep "gmail" | awk '{print $1}' | head -1)
+        GOG_HAS_DOCS=false
+        GOG_HAS_DRIVE=false
         if [[ -n "$EXISTING_GOG_EMAIL" ]]; then
-            ok "gog already authenticated for $EXISTING_GOG_EMAIL (gmail)"
+            # Check if docs and drive scopes are already authorized
+            GOG_SERVICES=$(gog auth list --plain 2>/dev/null | grep "$EXISTING_GOG_EMAIL" || echo "")
+            if echo "$GOG_SERVICES" | grep -q "docs"; then
+                GOG_HAS_DOCS=true
+            fi
+            if echo "$GOG_SERVICES" | grep -q "drive"; then
+                GOG_HAS_DRIVE=true
+            fi
+        fi
+
+        if [[ -n "$EXISTING_GOG_EMAIL" && "$GOG_HAS_DOCS" == "true" && "$GOG_HAS_DRIVE" == "true" ]]; then
+            ok "gog already authenticated for $EXISTING_GOG_EMAIL (gmail, docs, drive)"
             gmail_addr="$EXISTING_GOG_EMAIL"
+        elif [[ -n "$EXISTING_GOG_EMAIL" ]]; then
+            # Account exists but missing docs/drive scopes -- need to re-auth
+            gmail_addr="$EXISTING_GOG_EMAIL"
+            echo ""
+            warn "gog is authenticated for $EXISTING_GOG_EMAIL but missing Google Docs/Drive scopes"
+            echo "    Re-authenticating to add docs and drive access..."
+            echo ""
+            echo "    1. A URL will appear -- open it in your LOCAL browser"
+            echo "    2. Sign in as $gmail_addr"
+            echo "    3. Authorize the expanded permissions (Docs + Drive)"
+            echo "    4. You'll be redirected to a localhost URL that won't load"
+            echo "    5. Copy the ENTIRE redirect URL from your browser address bar"
+            echo "    6. Paste it back here"
+            echo ""
+            echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail,drive,docs --manual --force-consent${NC}"
+            echo ""
+            read -p "    Press Enter to continue..." _
+            if gog auth add "$gmail_addr" --services gmail,drive,docs --manual --force-consent 2>&1; then
+                ok "gog re-authenticated with gmail, docs, and drive scopes"
+            else
+                warn "gog re-auth may have failed. To retry manually:"
+                echo "    gog auth add $gmail_addr --services gmail,drive,docs --force-consent"
+            fi
         else
 
         # Check if credentials file exists
@@ -699,7 +735,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             ok "OAuth credentials already configured"
         else
             echo ""
-            echo "    gog needs OAuth client credentials to access Gmail."
+            echo "    gog needs OAuth client credentials to access Gmail, Docs, and Drive."
             echo "    You need to create these in the Google Cloud Console:"
             echo ""
             echo "    1. Go to: https://console.cloud.google.com/apis/credentials"
@@ -760,22 +796,23 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                     echo ""
                     echo "    Authenticating gog for $gmail_addr..."
                     echo "    This uses the --manual flow (no browser needed on this server)."
+                    echo "    Requesting Gmail, Google Docs, and Google Drive access."
                     echo ""
                     echo "    1. A URL will appear -- open it in your LOCAL browser"
                     echo "    2. Sign in as $gmail_addr"
-                    echo "    3. Authorize the app"
+                    echo "    3. Authorize the app (Gmail, Docs, and Drive permissions)"
                     echo "    4. You'll be redirected to a localhost URL that won't load"
                     echo "    5. Copy the ENTIRE redirect URL from your browser address bar"
                     echo "    6. Paste it back here"
                     echo ""
-                    echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail --manual${NC}"
+                    echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail,drive,docs --manual${NC}"
                     echo ""
                     read -p "    Press Enter to continue..." _
-                    if gog auth add "$gmail_addr" --services gmail --manual 2>&1; then
-                        ok "gog authenticated for $gmail_addr"
+                    if gog auth add "$gmail_addr" --services gmail,drive,docs --manual 2>&1; then
+                        ok "gog authenticated for $gmail_addr (gmail, docs, drive)"
                     else
                         warn "gog auth may have failed. To retry manually:"
-                        echo "    gog auth add $gmail_addr --services gmail"
+                        echo "    gog auth add $gmail_addr --services gmail,drive,docs"
                     fi
                 else
                     warn "Cannot authenticate gog without credentials. Gmail setup may fail."

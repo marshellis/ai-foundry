@@ -1,6 +1,6 @@
 # OpenClaw on DigitalOcean
 
-Deploy [OpenClaw](https://openclaw.ai) -- a personal AI assistant -- on a DigitalOcean droplet with WhatsApp, Telegram, and Gmail integration.
+Deploy [OpenClaw](https://openclaw.ai) -- a personal AI assistant -- on a DigitalOcean droplet with WhatsApp, Telegram, Gmail, and Google Docs/Drive integration.
 
 ## What This Rig Does
 
@@ -299,6 +299,46 @@ The wizard will:
 
 **Documentation:** [docs.openclaw.ai/automation/gmail-pubsub](https://docs.openclaw.ai/automation/gmail-pubsub)
 
+### Google Docs / Drive Access
+
+The setup script automatically requests Google Docs and Drive OAuth scopes alongside Gmail. This lets your assistant read and write Google Docs that the authenticated account has access to.
+
+#### What Gets Configured
+
+The installer handles this for you:
+1. Enables the Google Docs API and Google Drive API in your GCP project
+2. Requests `docs` and `drive` scopes during `gog` OAuth authentication
+3. If you already authenticated with Gmail-only scopes, it re-authenticates with `--force-consent` to add the missing scopes
+
+#### If You Already Ran Setup (Gmail-Only Scopes)
+
+If you set up Gmail before this update, you need to re-authorize with expanded scopes:
+
+```bash
+# Re-run the setup script -- it will detect missing scopes and re-auth
+bash droplet-setup.sh
+
+# Or manually re-authorize with docs and drive
+gog auth add your-assistant@gmail.com --services gmail,drive,docs --force-consent
+```
+
+#### Verify Google Docs Access
+
+```bash
+# List recent Docs in Drive
+gog drive search "mimeType='application/vnd.google-apps.document'" --max 5
+
+# Read a specific doc (use the doc ID from the URL)
+gog docs cat <docId>
+
+# Export a doc to text
+gog docs export <docId> --format txt --out /tmp/doc.txt
+```
+
+#### Google Docs Consent Screen Note
+
+If your GCP OAuth consent screen is in "Testing" mode, only test users you've added can authorize. Make sure the Gmail account you're using is listed as a test user in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials/consent).
+
 ---
 
 ## Verification
@@ -328,6 +368,7 @@ Then open [http://localhost:18789](http://localhost:18789) in your browser.
 1. **WhatsApp:** Send a message to your assistant's WhatsApp number
 2. **Telegram:** Send a message to your bot
 3. **Gmail:** Send an email to your assistant's Gmail address
+4. **Google Docs:** Ask your assistant to read or summarize a Google Doc it has access to
 
 Check logs for activity:
 ```bash

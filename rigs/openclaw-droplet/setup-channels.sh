@@ -202,7 +202,7 @@ case $CHOICE in
         echo "  gcloud config set project openclaw-gmail"
         echo ""
         echo "Enable required APIs:"
-        echo "  gcloud services enable gmail.googleapis.com pubsub.googleapis.com"
+        echo "  gcloud services enable gmail.googleapis.com pubsub.googleapis.com docs.googleapis.com drive.googleapis.com"
         echo ""
         echo "Create Pub/Sub topic:"
         echo "  gcloud pubsub topics create openclaw-gmail-watch"

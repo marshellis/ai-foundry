@@ -2,10 +2,10 @@
   "name": "OpenClaw on DigitalOcean",
   "slug": "openclaw-droplet",
   "version": "1.2.0",
-  "tagline": "Deploy your personal AI assistant with WhatsApp, Telegram, and Gmail",
-  "description": "A complete setup for OpenClaw on a DigitalOcean droplet. Can create the droplet automatically using doctl (DigitalOcean CLI) or connect to an existing one. Includes swap optimization and guided setup for WhatsApp (with dedicated number), Telegram bot, and Gmail Pub/Sub integration.",
+  "tagline": "Deploy your personal AI assistant with WhatsApp, Telegram, Gmail, and Google Docs",
+  "description": "A complete setup for OpenClaw on a DigitalOcean droplet. Can create the droplet automatically using doctl (DigitalOcean CLI) or connect to an existing one. Includes swap optimization and guided setup for WhatsApp (with dedicated number), Telegram bot, Gmail Pub/Sub integration, and Google Docs/Drive access.",
   "category": "self-hosted",
-  "tags": ["openclaw", "digitalocean", "whatsapp", "telegram", "gmail", "ai-assistant"],
+  "tags": ["openclaw", "digitalocean", "whatsapp", "telegram", "gmail", "google-docs", "ai-assistant"],
   "difficulty": "intermediate",
   "status": "ready",
 
@@ -23,7 +23,7 @@
     "repository": "https://github.com/openclaw/openclaw"
   },
 
-  "whatItDoes": "Deploys OpenClaw on a DigitalOcean droplet ($6/month) with full messaging integration. The installer runs from your local machine, SSHs into the droplet, installs OpenClaw with systemd persistence, and walks you through connecting WhatsApp (with a dedicated number), Telegram (via BotFather), and Gmail (via Pub/Sub). After setup, your AI assistant responds on all three channels.",
+  "whatItDoes": "Deploys OpenClaw on a DigitalOcean droplet ($6/month) with full messaging and document integration. The installer runs from your local machine, SSHs into the droplet, installs OpenClaw with systemd persistence, and walks you through connecting WhatsApp (with a dedicated number), Telegram (via BotFather), Gmail (via Pub/Sub), and Google Docs/Drive (read and write access). After setup, your AI assistant responds on all three channels and can read/write Google Docs it has access to.",
 
   "useCases": [
     "Personal AI assistant accessible via WhatsApp, Telegram, and email",
@@ -98,6 +98,10 @@
     {
       "label": "Guide Gmail Pub/Sub setup",
       "detail": "Walk through GCP project, topic, and webhook configuration"
+    },
+    {
+      "label": "Authorize Google Docs and Drive",
+      "detail": "Enables Docs and Drive APIs and expands OAuth scopes so the assistant can read/write Google Docs"
     }
   ],
 
@@ -121,6 +125,10 @@
     {
       "instruction": "Send an email to your assistant's Gmail",
       "expectedResult": "Email triggers webhook, assistant processes and can respond"
+    },
+    {
+      "instruction": "Ask the assistant to read a Google Doc",
+      "expectedResult": "Assistant can access and summarize Google Docs the authenticated account has access to"
     }
   ],
 
