@@ -102,8 +102,18 @@ function Clear-Checkpoint {
 
 # Handle -Reset flag
 if ($Reset) {
-    Clear-Checkpoint
-    Write-Host "Checkpoint cleared. Starting fresh."
+    # If we have droplet info, keep it but reset to re-run the droplet script
+    $existingCheckpoint = Load-Checkpoint
+    if ($existingCheckpoint -and $existingCheckpoint.DropletIP) {
+        # Reset to step 3 so we re-download and re-run the droplet script
+        # but skip re-doing local prereqs and droplet selection
+        Save-Checkpoint -Step 3 -DropletIP $existingCheckpoint.DropletIP -SSHUser $existingCheckpoint.SSHUser -DropletId $existingCheckpoint.DropletId -DropletName $existingCheckpoint.DropletName
+        Write-Host "Reset: will re-run droplet setup script with --reset" -ForegroundColor Yellow
+        Write-Host "       (keeping droplet: $($existingCheckpoint.DropletIP))" -ForegroundColor Yellow
+    } else {
+        Clear-Checkpoint
+        Write-Host "Checkpoint cleared. Starting fresh."
+    }
 }
 
 # Load existing checkpoint
@@ -762,7 +772,9 @@ if ($CurrentStep -ge 3 -and $CurrentStep -lt 6) {
     # Run the setup script interactively
     # The droplet script has its own checkpointing
     # Export GOG_KEYRING_PASSWORD so gog file-backend keyring doesn't prompt for a passphrase
-    ssh -o StrictHostKeyChecking=no -t "$SSHUser@$DropletIP" "export GOG_KEYRING_PASSWORD=openclaw; bash /tmp/openclaw-setup.sh"
+    # Pass --reset to the droplet script if the user ran install.ps1 -Reset
+    $dropletResetFlag = if ($Reset) { " --reset" } else { "" }
+    ssh -o StrictHostKeyChecking=no -t "$SSHUser@$DropletIP" "export GOG_KEYRING_PASSWORD=openclaw; bash /tmp/openclaw-setup.sh$dropletResetFlag"
     $sshExitCode = $LASTEXITCODE
 
     # Always save checkpoint with droplet info so we don't lose state
