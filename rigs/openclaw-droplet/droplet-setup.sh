@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.1"
+SCRIPT_VERSION="1.4.2"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -698,26 +698,40 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Now authenticate gog
-        if gog auth status &>/dev/null; then
-            ok "gog already authenticated"
-        else
-            if [[ -f "$GOG_CREDS" ]]; then
-                echo ""
-                echo "    Now authenticating gog with your credentials..."
-                echo "    This will show a URL -- open it in your browser,"
-                echo "    authorize, and paste the code back here."
-                echo ""
-                echo -e "${YELLOW}>>> Running: gog auth --no-browser${NC}"
-                echo ""
-                read -p "    Press Enter to continue..." _
-                if gog auth --no-browser || gog auth; then
-                    ok "gog authenticated"
-                else
-                    warn "gog auth may have failed. Check manually with 'gog auth status'"
-                fi
+        # Now authenticate gog for the specific Gmail account
+        # We need the email address here, so ask for it early
+        echo ""
+        read -p "    Enter the Gmail address for your assistant: " gmail_addr
+
+        if [[ -n "$gmail_addr" ]]; then
+            # Check if already authenticated for this account
+            if gog auth list 2>/dev/null | grep -q "$gmail_addr"; then
+                ok "gog already authenticated for $gmail_addr"
             else
-                warn "Cannot authenticate gog without credentials. Gmail setup may fail."
+                if [[ -f "$GOG_CREDS" ]]; then
+                    echo ""
+                    echo "    Authenticating gog for $gmail_addr..."
+                    echo "    This will use the --no-browser flow since this is a headless server."
+                    echo ""
+                    echo "    1. A URL will appear -- open it in your browser"
+                    echo "    2. Sign in as $gmail_addr"
+                    echo "    3. Authorize the app"
+                    echo "    4. Copy the authorization code and paste it here"
+                    echo ""
+                    echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail --no-browser${NC}"
+                    echo ""
+                    read -p "    Press Enter to continue..." _
+                    if gog auth add "$gmail_addr" --services gmail --no-browser 2>&1; then
+                        ok "gog authenticated for $gmail_addr"
+                    elif gog auth add "$gmail_addr" --services gmail 2>&1; then
+                        ok "gog authenticated for $gmail_addr"
+                    else
+                        warn "gog auth may have failed. To retry manually:"
+                        echo "    gog auth add $gmail_addr --services gmail"
+                    fi
+                else
+                    warn "Cannot authenticate gog without credentials. Gmail setup may fail."
+                fi
             fi
         fi
 
@@ -766,7 +780,12 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo "    Using GCP project: $GCP_PROJECT"
             fi
 
-            read -p "    Enter the Gmail address for your assistant: " gmail_addr
+            # gmail_addr was already set in Step 4 (gog auth)
+            if [[ -z "$gmail_addr" ]]; then
+                read -p "    Enter the Gmail address for your assistant: " gmail_addr
+            else
+                echo "    Using Gmail address: $gmail_addr"
+            fi
             if [[ -n "$gmail_addr" && -n "$GCP_PROJECT" ]]; then
                 echo ""
                 echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr --project $GCP_PROJECT${NC}"
