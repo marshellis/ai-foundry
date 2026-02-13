@@ -454,12 +454,11 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo ""
             echo -e "${YELLOW}>>> Running: gcloud auth login --no-browser${NC}"
             echo ""
-            gcloud auth login --no-browser
-            if [[ $? -ne 0 ]]; then
+            if gcloud auth login --no-browser; then
+                ok "gcloud authenticated"
+            else
                 warn "gcloud auth failed. Gmail setup cannot continue."
                 echo "    Run 'gcloud auth login --no-browser' manually later."
-            else
-                ok "gcloud authenticated"
             fi
         fi
 
@@ -506,8 +505,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo ""
                 echo -e "${YELLOW}>>> Running: gcloud projects create $GCP_PROJECT_ID${NC}"
                 echo ""
-                gcloud projects create "$GCP_PROJECT_ID" --name="OpenClaw Assistant" 2>&1
-                if [[ $? -eq 0 ]]; then
+                if gcloud projects create "$GCP_PROJECT_ID" --name="OpenClaw Assistant" 2>&1; then
                     ok "Project '$GCP_PROJECT_ID' created"
                     gcp_project="$GCP_PROJECT_ID"
                 else
@@ -526,8 +524,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo ""
                 echo "    Enabling required APIs (Gmail and Pub/Sub)..."
                 echo -e "${YELLOW}>>> Running: gcloud services enable gmail.googleapis.com pubsub.googleapis.com${NC}"
-                gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1
-                if [[ $? -eq 0 ]]; then
+                if gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1; then
                     ok "Gmail API and Pub/Sub API enabled"
                 else
                     warn "Could not enable APIs. You may need to enable billing first."
@@ -539,8 +536,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                     read -p "    Press Enter after enabling billing (or 'skip' to continue): " billing_response
                     if [[ "$billing_response" != "skip" ]]; then
                         echo "    Retrying API enable..."
-                        gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1
-                        if [[ $? -eq 0 ]]; then
+                        if gcloud services enable gmail.googleapis.com pubsub.googleapis.com 2>&1; then
                             ok "Gmail API and Pub/Sub API enabled"
                         else
                             warn "APIs still could not be enabled. Gmail setup may fail."
@@ -563,11 +559,10 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo -e "${YELLOW}>>> Running: gog auth --no-browser${NC}"
             echo ""
             read -p "    Press Enter to continue..." _
-            gog auth --no-browser || gog auth
-            if [[ $? -ne 0 ]]; then
-                warn "gog auth may have failed. Check manually with 'gog auth status'"
-            else
+            if gog auth --no-browser || gog auth; then
                 ok "gog authenticated"
+            else
+                warn "gog auth may have failed. Check manually with 'gog auth status'"
             fi
         fi
 
