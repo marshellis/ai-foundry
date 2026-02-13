@@ -295,6 +295,11 @@ fi
 # -------------------------------------------------------
 # Step 7: Install OpenClaw
 # -------------------------------------------------------
+# Limit Node.js heap to prevent OOM on 1GB droplets (swap handles overflow).
+# Must be set before Step 7 because the upstream installer runs `openclaw setup`
+# which can exhaust memory during its initial build/setup phase.
+export NODE_OPTIONS="--max-old-space-size=900"
+
 if [[ "$CURRENT_STEP" -lt 7 ]]; then
     step "Step 7/8: Installing OpenClaw"
 
@@ -343,8 +348,6 @@ if [[ "$CURRENT_STEP" -lt 8 ]]; then
         echo ""
         read -p "    Press Enter to start onboarding..."
 
-        # Limit Node.js heap to prevent OOM on 1GB droplets (swap handles overflow)
-        export NODE_OPTIONS="--max-old-space-size=768"
         openclaw onboard --install-daemon
     fi
 
@@ -377,7 +380,6 @@ if [[ "$CURRENT_STEP" -lt 9 ]]; then
     echo -e "${YELLOW}>>> Running: openclaw agent -m 'Say hello in 3 words' --agent main${NC}"
     echo ""
     
-    export NODE_OPTIONS="--max-old-space-size=768"
     TEST_RESULT=$(timeout 30 openclaw agent -m "Say hello in exactly 3 words" --agent main 2>&1) || true
     
     if [[ -n "$TEST_RESULT" ]] && [[ "$TEST_RESULT" != *"error"* ]] && [[ "$TEST_RESULT" != *"Error"* ]]; then
@@ -439,8 +441,6 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo -e "${YELLOW}    Please enter a choice.${NC}"
         fi
     done
-
-    export NODE_OPTIONS="--max-old-space-size=768"
 
     if [[ "$channel_choices" == *"1"* ]]; then
         echo ""
