@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -332,16 +332,20 @@ if [[ "$CURRENT_STEP" -lt 9 ]]; then
     # Test with a simple prompt
     echo ""
     echo -e "${YELLOW}    Testing with a simple prompt...${NC}"
+    echo -e "${YELLOW}>>> Running: openclaw agent -m 'Say hello in 3 words' --agent main${NC}"
     echo ""
     
     export NODE_OPTIONS="--max-old-space-size=768"
-    TEST_RESULT=$(echo "Say hello in exactly 3 words" | timeout 30 openclaw chat 2>&1) || true
+    TEST_RESULT=$(timeout 30 openclaw agent -m "Say hello in exactly 3 words" --agent main 2>&1) || true
     
     if [[ -n "$TEST_RESULT" ]] && [[ "$TEST_RESULT" != *"error"* ]] && [[ "$TEST_RESULT" != *"Error"* ]]; then
         ok "OpenClaw responded: $TEST_RESULT"
         echo ""
     else
         warn "OpenClaw test failed or timed out"
+        if [[ -n "$TEST_RESULT" ]]; then
+            echo "    Output: $TEST_RESULT"
+        fi
         echo ""
         echo "    This usually means the API key is not configured."
         echo ""
@@ -357,7 +361,7 @@ if [[ "$CURRENT_STEP" -lt 9 ]]; then
             # Test again
             echo ""
             echo "    Testing again..."
-            TEST_RESULT=$(echo "Say hello in exactly 3 words" | timeout 30 openclaw chat 2>&1) || true
+            TEST_RESULT=$(timeout 30 openclaw agent -m "Say hello in exactly 3 words" --agent main 2>&1) || true
             if [[ -n "$TEST_RESULT" ]] && [[ "$TEST_RESULT" != *"error"* ]]; then
                 ok "OpenClaw responded: $TEST_RESULT"
             else
