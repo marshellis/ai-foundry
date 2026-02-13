@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.4.4"
+$ScriptVersion = "1.4.5"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -792,9 +792,9 @@ if ($CurrentStep -lt 6) {
 }
 
 # -------------------------------------------------------
-# Done - Clear checkpoint and print guide
+# Done - Keep checkpoint so re-runs skip to droplet script
+# Use -Reset to start completely fresh
 # -------------------------------------------------------
-Clear-Checkpoint
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
