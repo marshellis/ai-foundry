@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.4.0"
+$ScriptVersion = "1.4.1"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -724,9 +724,9 @@ if ($CurrentStep -lt 5) {
 
     $oldErrorAction = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
-    # Download script with cache-bust and convert any Windows CRLF to Unix LF line endings
-    $cacheBust = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-    $downloadResult = & ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "curl -fsSL '$RigBaseUrl/droplet-setup.sh?cb=$cacheBust' | sed 's/\r$//' > /tmp/openclaw-setup.sh && chmod +x /tmp/openclaw-setup.sh && echo 'DOWNLOAD_OK'" 2>&1
+    # Download script via GitHub API (avoids raw.githubusercontent.com CDN caching)
+    $apiUrl = "https://api.github.com/repos/marshellis/ai-foundry/contents/rigs/openclaw-droplet/droplet-setup.sh?ref=main"
+    $downloadResult = & ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "curl -fsSL -H 'Accept: application/vnd.github.v3.raw' '$apiUrl' | sed 's/\r$//' > /tmp/openclaw-setup.sh && chmod +x /tmp/openclaw-setup.sh && echo 'DOWNLOAD_OK'" 2>&1
     $downloadExitCode = $LASTEXITCODE
     $ErrorActionPreference = $oldErrorAction
     
