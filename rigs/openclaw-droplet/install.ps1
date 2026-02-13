@@ -14,7 +14,7 @@
     - Run with -Reset to start fresh
 
     Usage:
-        irm https://raw.githubusercontent.com/jjackson/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex
+        irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex
 
 .PARAMETER Reset
     Clear checkpoint and start fresh
@@ -30,7 +30,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ScriptVersion = "1.4.8"
-$RigBaseUrl = "https://raw.githubusercontent.com/jjackson/ai-foundry/main/rigs/openclaw-droplet"
+$RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
 function Write-Step {
@@ -728,7 +728,7 @@ if ($CurrentStep -ge 3) {
     $oldErrorAction = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
     # Download script via GitHub API (avoids raw.githubusercontent.com CDN caching)
-    $apiUrl = "https://api.github.com/repos/jjackson/ai-foundry/contents/rigs/openclaw-droplet/droplet-setup.sh?ref=main"
+    $apiUrl = "https://api.github.com/repos/marshellis/ai-foundry/contents/rigs/openclaw-droplet/droplet-setup.sh?ref=main"
     $downloadResult = & ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "curl -fsSL -H 'Accept: application/vnd.github.v3.raw' '$apiUrl' | sed 's/\r$//' > /tmp/openclaw-setup.sh && chmod +x /tmp/openclaw-setup.sh && echo 'DOWNLOAD_OK'" 2>&1
     $downloadExitCode = $LASTEXITCODE
     $ErrorActionPreference = $oldErrorAction
