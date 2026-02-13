@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.3.2"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -279,18 +279,32 @@ fi
 if [[ "$CURRENT_STEP" -lt 8 ]]; then
     step "Step 8/8: Running OpenClaw onboarding"
 
-    echo ""
-    echo -e "${YELLOW}    The onboarding wizard will now run interactively.${NC}"
-    echo -e "${YELLOW}    Recommended settings:${NC}"
-    echo -e "${YELLOW}      - Gateway bind: loopback (default, secure)${NC}"
-    echo -e "${YELLOW}      - Install daemon: Yes${NC}"
-    echo -e "${YELLOW}      - Enter your Anthropic/OpenAI API key when prompted${NC}"
-    echo ""
-    read -p "    Press Enter to start onboarding..."
+    # Check if onboarding was already completed by looking for the daemon service
+    ONBOARDING_DONE=false
+    if systemctl is-enabled openclaw &>/dev/null 2>&1 || systemctl is-active openclaw &>/dev/null 2>&1; then
+        ONBOARDING_DONE=true
+    elif [[ -f /etc/systemd/system/openclaw.service ]]; then
+        ONBOARDING_DONE=true
+    fi
 
-    # Limit Node.js heap to prevent OOM on 1GB droplets (swap handles overflow)
-    export NODE_OPTIONS="--max-old-space-size=768"
-    openclaw onboard --install-daemon
+    if [[ "$ONBOARDING_DONE" == "true" ]]; then
+        ok "OpenClaw onboarding already completed (daemon is configured)"
+        echo ""
+        echo "    To re-run onboarding, use: openclaw onboard --install-daemon"
+    else
+        echo ""
+        echo -e "${YELLOW}    The onboarding wizard will now run interactively.${NC}"
+        echo -e "${YELLOW}    Recommended settings:${NC}"
+        echo -e "${YELLOW}      - Gateway bind: loopback (default, secure)${NC}"
+        echo -e "${YELLOW}      - Install daemon: Yes${NC}"
+        echo -e "${YELLOW}      - Enter your Anthropic/OpenAI API key when prompted${NC}"
+        echo ""
+        read -p "    Press Enter to start onboarding..."
+
+        # Limit Node.js heap to prevent OOM on 1GB droplets (swap handles overflow)
+        export NODE_OPTIONS="--max-old-space-size=768"
+        openclaw onboard --install-daemon
+    fi
 
     save_checkpoint 8
 fi
