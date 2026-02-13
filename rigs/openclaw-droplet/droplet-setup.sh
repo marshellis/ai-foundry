@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.4"
+SCRIPT_VERSION="1.3.5"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -440,15 +440,55 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         echo ""
         echo -e "${CYAN}--- Gmail Setup ---${NC}"
         echo ""
-        echo "    Gmail setup requires:"
-        echo "    1. A Google Cloud project with Gmail API and Pub/Sub API enabled"
-        echo "    2. Tailscale connected (for webhook endpoint)"
-        echo ""
-        echo "    We'll walk through the authentication steps now."
+        echo "    Gmail setup requires Tailscale, gcloud, and gog."
+        echo "    We'll walk through each step now."
         echo ""
 
-        # Step 1: Check/authenticate gcloud
-        echo -e "${YELLOW}[Step 1/4] Authenticating gcloud CLI${NC}"
+        # Step 1: Ensure Tailscale is connected
+        echo -e "${YELLOW}[Step 1/5] Connecting Tailscale${NC}"
+        if tailscale status &>/dev/null 2>&1 && ! tailscale status 2>&1 | grep -q "Logged out"; then
+            TS_NAME=$(tailscale status --self --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+            if [[ -n "$TS_NAME" ]]; then
+                ok "Tailscale connected as $TS_NAME"
+            else
+                ok "Tailscale connected"
+            fi
+        else
+            echo ""
+            echo "    Tailscale provides a public HTTPS endpoint for Gmail webhooks."
+            echo "    You need a Tailscale account (free for personal use)."
+            echo "    Sign up at: https://tailscale.com/"
+            echo ""
+            echo "    Since this is a headless server, we'll use an auth key."
+            echo ""
+            echo "    To get an auth key:"
+            echo "    1. Go to: https://login.tailscale.com/admin/settings/keys"
+            echo "    2. Generate a new auth key (reusable is fine)"
+            echo "    3. Copy the key"
+            echo ""
+            read -p "    Enter your Tailscale auth key (or 'skip' to skip Gmail): " ts_key
+
+            if [[ "$ts_key" == "skip" ]]; then
+                echo "    Skipping Gmail setup."
+                # Jump past Gmail by not entering the rest of the block
+            else
+                echo ""
+                echo -e "${YELLOW}>>> Running: tailscale up --authkey <KEY>${NC}"
+                echo ""
+                if tailscale up --authkey "$ts_key" 2>&1; then
+                    ok "Tailscale connected"
+                else
+                    warn "Tailscale auth failed. You can try manually: tailscale up --authkey <KEY>"
+                fi
+            fi
+        fi
+
+        # Only continue if Tailscale is connected
+        if tailscale status &>/dev/null 2>&1 && ! tailscale status 2>&1 | grep -q "Logged out"; then
+
+        # Step 2: Check/authenticate gcloud
+        echo ""
+        echo -e "${YELLOW}[Step 2/5] Authenticating gcloud CLI${NC}"
         if gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | grep -q "@"; then
             GCLOUD_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1)
             ok "gcloud already authenticated as $GCLOUD_ACCOUNT"
@@ -480,9 +520,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Step 2: Set GCP project
+        # Step 3: Set GCP project
         echo ""
-        echo -e "${YELLOW}[Step 2/4] Setting Google Cloud project${NC}"
+        echo -e "${YELLOW}[Step 3/5] Setting Google Cloud project${NC}"
         echo ""
         echo "    Gmail uses Google Cloud for Pub/Sub notifications."
         echo "    You need a Google Cloud project with billing enabled."
@@ -564,9 +604,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Step 3: Authenticate gog (for Gmail OAuth)
+        # Step 4: Authenticate gog (for Gmail OAuth)
         echo ""
-        echo -e "${YELLOW}[Step 3/4] Authenticating gog (Gmail OAuth)${NC}"
+        echo -e "${YELLOW}[Step 4/5] Authenticating gog (Gmail OAuth)${NC}"
         if gog auth status &>/dev/null; then
             ok "gog already authenticated"
         else
@@ -584,9 +624,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Step 4: Run OpenClaw Gmail setup
+        # Step 5: Run OpenClaw Gmail setup
         echo ""
-        echo -e "${YELLOW}[Step 4/4] Running OpenClaw Gmail webhook setup${NC}"
+        echo -e "${YELLOW}[Step 5/5] Running OpenClaw Gmail webhook setup${NC}"
 
         # Get the current GCP project ID to pass to openclaw
         GCP_PROJECT=$(gcloud config get-value project 2>/dev/null || echo "")
@@ -614,6 +654,8 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo ""
             ok "Gmail setup attempted. Check output above for any errors."
         fi
+
+        fi # end: Tailscale connected check
     fi
 
     save_checkpoint 10
