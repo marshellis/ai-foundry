@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.9"
+SCRIPT_VERSION="1.4.0"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -641,23 +641,81 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             fi
         fi
 
-        # Step 4: Authenticate gog (for Gmail OAuth)
+        # Step 4: Set up gog OAuth credentials and authenticate
         echo ""
-        echo -e "${YELLOW}[Step 4/6] Authenticating gog (Gmail OAuth)${NC}"
+        echo -e "${YELLOW}[Step 4/6] Setting up Gmail OAuth (gog)${NC}"
+
+        # Check if credentials file exists
+        GOG_CREDS="/root/.config/gogcli/credentials.json"
+        if [[ -f "$GOG_CREDS" ]]; then
+            ok "OAuth credentials already configured"
+        else
+            echo ""
+            echo "    gog needs OAuth client credentials to access Gmail."
+            echo "    You need to create these in the Google Cloud Console:"
+            echo ""
+            echo "    1. Go to: https://console.cloud.google.com/apis/credentials"
+            echo "       (Make sure your project is selected in the top bar)"
+            echo "    2. Click 'Create Credentials' -> 'OAuth client ID'"
+            echo "    3. If asked to configure consent screen:"
+            echo "       - Choose 'External' user type"
+            echo "       - Fill in app name (e.g., 'OpenClaw Gmail')"
+            echo "       - Add your email as test user"
+            echo "       - Save and go back to Credentials"
+            echo "    4. Application type: 'Desktop app'"
+            echo "    5. Name it anything (e.g., 'OpenClaw')"
+            echo "    6. Click 'Create'"
+            echo "    7. Click 'Download JSON'"
+            echo "    8. Copy the contents of the downloaded JSON file"
+            echo ""
+            echo -e "${YELLOW}    Paste the JSON contents below, then press Enter twice:${NC}"
+            echo ""
+
+            # Read multiline JSON input
+            mkdir -p /root/.config/gogcli
+            CREDS_INPUT=""
+            while IFS= read -r line; do
+                [[ -z "$line" ]] && break
+                CREDS_INPUT+="$line"
+            done
+
+            if [[ -n "$CREDS_INPUT" ]]; then
+                echo "$CREDS_INPUT" > "$GOG_CREDS"
+                # Validate it looks like JSON
+                if grep -q "client_id" "$GOG_CREDS" 2>/dev/null; then
+                    ok "OAuth credentials saved to $GOG_CREDS"
+                else
+                    warn "That doesn't look like valid OAuth credentials JSON"
+                    echo "    Expected JSON with 'client_id' field"
+                    echo "    File saved to $GOG_CREDS -- you can replace it manually"
+                fi
+            else
+                warn "No credentials entered"
+                echo "    Download the JSON from: https://console.cloud.google.com/apis/credentials"
+                echo "    Then run: gog auth credentials <path-to-credentials.json>"
+            fi
+        fi
+
+        # Now authenticate gog
         if gog auth status &>/dev/null; then
             ok "gog already authenticated"
         else
-            echo ""
-            echo "    gog needs OAuth access to Gmail."
-            echo "    This also uses a --no-browser flow."
-            echo ""
-            echo -e "${YELLOW}>>> Running: gog auth --no-browser${NC}"
-            echo ""
-            read -p "    Press Enter to continue..." _
-            if gog auth --no-browser || gog auth; then
-                ok "gog authenticated"
+            if [[ -f "$GOG_CREDS" ]]; then
+                echo ""
+                echo "    Now authenticating gog with your credentials..."
+                echo "    This will show a URL -- open it in your browser,"
+                echo "    authorize, and paste the code back here."
+                echo ""
+                echo -e "${YELLOW}>>> Running: gog auth --no-browser${NC}"
+                echo ""
+                read -p "    Press Enter to continue..." _
+                if gog auth --no-browser || gog auth; then
+                    ok "gog authenticated"
+                else
+                    warn "gog auth may have failed. Check manually with 'gog auth status'"
+                fi
             else
-                warn "gog auth may have failed. Check manually with 'gog auth status'"
+                warn "Cannot authenticate gog without credentials. Gmail setup may fail."
             fi
         fi
 
