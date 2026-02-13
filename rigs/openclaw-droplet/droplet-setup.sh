@@ -437,17 +437,23 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         else
             echo ""
             echo "    You need to authenticate gcloud. Since this is a headless server,"
-            echo "    we'll use the --no-browser flow."
+            echo "    gcloud will show you a command to run on your LOCAL machine."
+            echo ""
+            echo -e "${YELLOW}    IMPORTANT: You need gcloud CLI installed on your local machine.${NC}"
+            echo "    Install from: https://cloud.google.com/sdk/docs/install"
+            echo ""
+            echo "    The flow will be:"
+            echo "    1. gcloud prints a command starting with 'gcloud auth login --remote-bootstrap=...'"
+            echo "    2. Copy that ENTIRE command (it's very long)"
+            echo "    3. Run it in a terminal on your LOCAL machine (not here)"
+            echo "    4. A browser will open, sign in and authorize"
+            echo "    5. Your local gcloud will print output - copy ALL of it"
+            echo "    6. Paste that output back here"
+            echo ""
+            read -p "    Press Enter when ready..." _
             echo ""
             echo -e "${YELLOW}>>> Running: gcloud auth login --no-browser${NC}"
             echo ""
-            echo "    1. Copy the URL that appears below"
-            echo "    2. Open it in your browser on your local machine"
-            echo "    3. Sign in and authorize"
-            echo "    4. Copy the authorization code"
-            echo "    5. Paste it back here"
-            echo ""
-            read -p "    Press Enter to continue..." _
             gcloud auth login --no-browser
             if [[ $? -ne 0 ]]; then
                 warn "gcloud auth failed. Gmail setup cannot continue."
