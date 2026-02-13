@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output

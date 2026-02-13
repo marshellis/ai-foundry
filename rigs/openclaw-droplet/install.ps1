@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.3.0"
+$ScriptVersion = "1.4.0"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -117,11 +117,14 @@ $DropletName = if ($Checkpoint) { $Checkpoint.DropletName } else { "" }
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  OpenClaw on DigitalOcean" -ForegroundColor Cyan
-Write-Host "  Remote Installer v$ScriptVersion" -ForegroundColor Cyan
+Write-Host "  Local installer v$ScriptVersion" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "This installer runs on your LOCAL machine and"
 Write-Host "SSHs into your DigitalOcean droplet to set up OpenClaw."
+Write-Host ""
+Write-Host "The droplet setup script is always re-downloaded" -ForegroundColor Gray
+Write-Host "from GitHub to ensure you have the latest version." -ForegroundColor Gray
 Write-Host ""
 
 if ($CurrentStep -gt 0) {
@@ -713,10 +716,11 @@ if ($CurrentStep -lt 3) {
 }
 
 # -------------------------------------------------------
-# Step 4: Download setup script on droplet
+# Step 4/5: Download latest setup script and run on droplet
 # -------------------------------------------------------
-if ($CurrentStep -lt 4) {
-    Write-Step "Step 4/6: Downloading setup script on droplet"
+if ($CurrentStep -lt 5) {
+    # Always re-download the droplet script to ensure latest version
+    Write-Step "Step 4/6: Downloading latest setup script to droplet"
 
     $oldErrorAction = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
@@ -731,16 +735,20 @@ if ($CurrentStep -lt 4) {
         exit 1
     }
 
-    Write-Ok "Setup script downloaded to /tmp/openclaw-setup.sh"
+    # Fetch the droplet script version for display
+    $oldErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    $dropletScriptVersion = & ssh -o StrictHostKeyChecking=no "$SSHUser@$DropletIP" "grep 'SCRIPT_VERSION=' /tmp/openclaw-setup.sh | head -1 | cut -d'""' -f2" 2>&1
+    $ErrorActionPreference = $oldErrorAction
+    if ($dropletScriptVersion) {
+        Write-Ok "Setup script v$dropletScriptVersion downloaded to droplet"
+    } else {
+        Write-Ok "Setup script downloaded to droplet"
+    }
 
     Save-Checkpoint -Step 4 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
     $CurrentStep = 4
-}
 
-# -------------------------------------------------------
-# Step 5: Execute setup on droplet
-# -------------------------------------------------------
-if ($CurrentStep -lt 5) {
     Write-Step "Step 5/6: Running setup on droplet"
 
     Write-Host ""
