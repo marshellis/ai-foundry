@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.6"
+SCRIPT_VERSION="1.3.7"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -222,6 +222,7 @@ if [[ "$CURRENT_STEP" -lt 5 ]]; then
         echo ""
         echo "    To get an auth key:"
         echo "    1. Sign up at: https://tailscale.com/ (free for personal use)"
+        echo "       (Click 'Skip this introduction' if you see a device setup wizard)"
         echo "    2. Go to: https://login.tailscale.com/admin/settings/keys"
         echo "    3. Generate a new auth key"
         echo "    4. Copy the key"
@@ -487,6 +488,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo "    Tailscale provides a public HTTPS endpoint for Gmail webhooks."
             echo "    You need a Tailscale account (free for personal use)."
             echo "    Sign up at: https://tailscale.com/"
+            echo "    (Click 'Skip this introduction' if you see a device setup wizard)"
             echo ""
             echo "    Since this is a headless server, we'll use an auth key."
             echo ""
