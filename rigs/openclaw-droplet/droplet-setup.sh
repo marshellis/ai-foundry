@@ -14,7 +14,11 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.7"
+SCRIPT_VERSION="1.4.8"
+
+# Set gog keyring password so file-backend never prompts interactively
+# This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
+export GOG_KEYRING_PASSWORD="${GOG_KEYRING_PASSWORD:-openclaw}"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output

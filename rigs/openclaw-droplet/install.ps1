@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.4.6"
+$ScriptVersion = "1.4.7"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -761,7 +761,8 @@ if ($CurrentStep -ge 3 -and $CurrentStep -lt 6) {
 
     # Run the setup script interactively
     # The droplet script has its own checkpointing
-    ssh -o StrictHostKeyChecking=no -t "$SSHUser@$DropletIP" "bash /tmp/openclaw-setup.sh"
+    # Export GOG_KEYRING_PASSWORD so gog file-backend keyring doesn't prompt for a passphrase
+    ssh -o StrictHostKeyChecking=no -t "$SSHUser@$DropletIP" "export GOG_KEYRING_PASSWORD=openclaw; bash /tmp/openclaw-setup.sh"
     $sshExitCode = $LASTEXITCODE
 
     # Always save checkpoint with droplet info so we don't lose state
