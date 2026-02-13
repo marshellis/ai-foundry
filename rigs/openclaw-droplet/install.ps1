@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.4.5"
+$ScriptVersion = "1.4.6"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -771,11 +771,16 @@ if ($CurrentStep -ge 3 -and $CurrentStep -lt 6) {
     if ($sshExitCode -ne 0) {
         Write-Warn "Setup may not have completed successfully (exit code: $sshExitCode)"
         Write-Host "    Run this script again to retry/resume"
+        # Don't advance to Step 6 -- next run should re-run the droplet script
+        Write-Host ""
+        Write-Host "Droplet: $SSHUser@$DropletIP" -ForegroundColor Cyan
+        Write-Host "Run this script again to retry." -ForegroundColor Gray
+        exit 1
     }
 }
 
 # -------------------------------------------------------
-# Step 6: Final verification
+# Step 6: Final verification (only reached on clean exit from droplet)
 # -------------------------------------------------------
 if ($CurrentStep -lt 6) {
     Write-Step "Step 6/6: Verifying installation"
