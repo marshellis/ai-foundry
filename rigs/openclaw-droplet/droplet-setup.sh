@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.4.3"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -828,9 +828,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 fi
 
 # -------------------------------------------------------
-# Done - Clear checkpoint
+# Done - Keep checkpoint so re-runs skip completed steps
+# Use --reset flag to start completely fresh
 # -------------------------------------------------------
-clear_checkpoint
 
 DROPLET_IP=$(hostname -I | awk '{print $1}')
 
