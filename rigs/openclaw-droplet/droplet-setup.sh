@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.5"
+SCRIPT_VERSION="1.4.6"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -704,6 +704,17 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo "    Download the JSON from: https://console.cloud.google.com/apis/credentials"
                 echo "    Then run: gog auth credentials set <path-to-credentials.json>"
             fi
+        fi
+
+        # Ensure gog uses plaintext keyring (no passphrase prompt at runtime)
+        # This must run here (not just in step 6) in case we're resuming past step 6
+        CURRENT_BACKEND=$(gog auth keyring 2>/dev/null | grep "keyring_backend	" | awk '{print $2}' || echo "unknown")
+        if [[ "$CURRENT_BACKEND" != "file" ]]; then
+            echo "    Setting gog keyring to plaintext (required for unattended runtime)..."
+            gog auth keyring file 2>/dev/null || true
+            # Remove old encrypted keyring directory if it exists
+            rm -rf /root/.config/gogcli/keyring 2>/dev/null || true
+            ok "gog keyring set to plaintext file"
         fi
 
         # Now authenticate gog for the specific Gmail account
