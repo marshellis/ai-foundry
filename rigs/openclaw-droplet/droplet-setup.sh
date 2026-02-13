@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.0"
+SCRIPT_VERSION="1.5.1"
 
 # Set gog keyring password so file-backend never prompts interactively
 # This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
@@ -842,17 +842,27 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo ""
                 if openclaw webhooks gmail setup --account "$gmail_addr" --project "$GCP_PROJECT" 2>&1; then
                     ok "Gmail webhook configured"
-                    # Start the gmail watch process (listens for Pub/Sub push notifications)
-                    echo ""
-                    echo "    Starting Gmail watch process..."
-                    export GOG_KEYRING_PASSWORD="openclaw"
-                    nohup openclaw webhooks gmail run --account "$gmail_addr" > /var/log/openclaw-gmail.log 2>&1 &
-                    GMAIL_PID=$!
-                    sleep 2
-                    if kill -0 "$GMAIL_PID" 2>/dev/null; then
-                        ok "Gmail watch running (pid $GMAIL_PID, log: /var/log/openclaw-gmail.log)"
+
+                    # Add GOG_KEYRING_PASSWORD to the systemd unit so the gateway can access gog tokens
+                    UNIT_FILE="$HOME/.config/systemd/user/openclaw-gateway.service"
+                    if [[ -f "$UNIT_FILE" ]] && ! grep -q "GOG_KEYRING_PASSWORD" "$UNIT_FILE"; then
+                        sed -i '/\[Install\]/i Environment=GOG_KEYRING_PASSWORD=openclaw' "$UNIT_FILE"
+                        systemctl --user daemon-reload
+                        ok "Added GOG_KEYRING_PASSWORD to gateway service"
+                    fi
+
+                    # Restart gateway so it picks up the gmail config and env var
+                    echo "    Restarting gateway to activate Gmail watcher..."
+                    systemctl --user restart openclaw-gateway 2>/dev/null || openclaw gateway restart 2>/dev/null || true
+                    sleep 5
+
+                    # Verify gmail watcher started
+                    if journalctl --user -u openclaw-gateway --since "10 sec ago" --no-pager 2>/dev/null | grep -q "gmail watcher started"; then
+                        ok "Gmail watcher running"
+                    elif openclaw logs 2>&1 | tail -5 | grep -q "gmail.*watcher.*started"; then
+                        ok "Gmail watcher running"
                     else
-                        warn "Gmail watch may not have started. Check: /var/log/openclaw-gmail.log"
+                        warn "Gmail watcher may not have started. Check: openclaw logs"
                     fi
                     GMAIL_OK=true
                 else
@@ -875,16 +885,19 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo ""
                 if openclaw webhooks gmail setup --account "$gmail_addr" 2>&1; then
                     ok "Gmail webhook configured"
-                    echo ""
-                    echo "    Starting Gmail watch process..."
-                    export GOG_KEYRING_PASSWORD="openclaw"
-                    nohup openclaw webhooks gmail run --account "$gmail_addr" > /var/log/openclaw-gmail.log 2>&1 &
-                    GMAIL_PID=$!
-                    sleep 2
-                    if kill -0 "$GMAIL_PID" 2>/dev/null; then
-                        ok "Gmail watch running (pid $GMAIL_PID, log: /var/log/openclaw-gmail.log)"
+
+                    UNIT_FILE="$HOME/.config/systemd/user/openclaw-gateway.service"
+                    if [[ -f "$UNIT_FILE" ]] && ! grep -q "GOG_KEYRING_PASSWORD" "$UNIT_FILE"; then
+                        sed -i '/\[Install\]/i Environment=GOG_KEYRING_PASSWORD=openclaw' "$UNIT_FILE"
+                        systemctl --user daemon-reload
+                    fi
+                    echo "    Restarting gateway to activate Gmail watcher..."
+                    systemctl --user restart openclaw-gateway 2>/dev/null || openclaw gateway restart 2>/dev/null || true
+                    sleep 5
+                    if journalctl --user -u openclaw-gateway --since "10 sec ago" --no-pager 2>/dev/null | grep -q "gmail watcher started"; then
+                        ok "Gmail watcher running"
                     else
-                        warn "Gmail watch may not have started. Check: /var/log/openclaw-gmail.log"
+                        warn "Gmail watcher may not have started. Check: openclaw logs"
                     fi
                     GMAIL_OK=true
                 else
