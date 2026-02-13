@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.4.2"
+$ScriptVersion = "1.4.3"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -717,8 +717,9 @@ if ($CurrentStep -lt 3) {
 
 # -------------------------------------------------------
 # Step 4/5: Download latest setup script and run on droplet
+# Always re-run: the droplet script has its own checkpointing
 # -------------------------------------------------------
-if ($CurrentStep -lt 5) {
+if ($CurrentStep -ge 3 -and $CurrentStep -lt 6) {
     # Always re-download the droplet script to ensure latest version
     Write-Step "Step 4/6: Downloading latest setup script to droplet"
 
