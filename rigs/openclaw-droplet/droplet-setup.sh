@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.1"
+SCRIPT_VERSION="1.5.2"
 
 # Set gog keyring password so file-backend never prompts interactively
 # This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
@@ -477,6 +477,8 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
         read -p "    Enter your Telegram bot token: " tg_token
         if [[ -n "$tg_token" ]]; then
             echo ""
+            # Enable telegram plugin first
+            openclaw plugins enable telegram 2>/dev/null || true
             echo -e "${YELLOW}>>> Running: openclaw channels add --channel telegram --token <TOKEN>${NC}"
             echo ""
             if openclaw channels add --channel telegram --token "$tg_token" 2>&1; then
@@ -646,10 +648,10 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 
                 # Enable required APIs
                 echo ""
-                echo "    Enabling required APIs (Gmail, Pub/Sub, Docs, Drive)..."
-                echo -e "${YELLOW}>>> Running: gcloud services enable gmail.googleapis.com pubsub.googleapis.com docs.googleapis.com drive.googleapis.com${NC}"
-                if gcloud services enable gmail.googleapis.com pubsub.googleapis.com docs.googleapis.com drive.googleapis.com 2>&1; then
-                    ok "Gmail, Pub/Sub, Docs, and Drive APIs enabled"
+                echo "    Enabling Google APIs (Gmail, Pub/Sub, Sheets, Drive, Docs, Calendar)..."
+                echo -e "${YELLOW}>>> Running: gcloud services enable gmail.googleapis.com pubsub.googleapis.com sheets.googleapis.com drive.googleapis.com docs.googleapis.com calendar-json.googleapis.com${NC}"
+                if gcloud services enable gmail.googleapis.com pubsub.googleapis.com sheets.googleapis.com drive.googleapis.com docs.googleapis.com calendar-json.googleapis.com 2>&1; then
+                    ok "Google APIs enabled (Gmail, Pub/Sub, Sheets, Drive, Docs, Calendar)"
                 else
                     warn "Could not enable APIs. You may need to enable billing first."
                     echo ""
@@ -686,46 +688,42 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo 'GOG_KEYRING_PASSWORD=openclaw' >> /etc/environment
         fi
 
-        # Check if gog is already fully authenticated with gmail + docs + drive services
+        # Check if gog is already fully authenticated with all required services
         EXISTING_GOG_EMAIL=$(gog auth list --plain 2>/dev/null | grep "gmail" | awk '{print $1}' | head -1)
-        GOG_HAS_DOCS=false
-        GOG_HAS_DRIVE=false
+        GOG_ALL_SERVICES=false
         if [[ -n "$EXISTING_GOG_EMAIL" ]]; then
-            # Check if docs and drive scopes are already authorized
             GOG_SERVICES=$(gog auth list --plain 2>/dev/null | grep "$EXISTING_GOG_EMAIL" || echo "")
-            if echo "$GOG_SERVICES" | grep -q "docs"; then
-                GOG_HAS_DOCS=true
-            fi
-            if echo "$GOG_SERVICES" | grep -q "drive"; then
-                GOG_HAS_DRIVE=true
+            # Check for all required services
+            if echo "$GOG_SERVICES" | grep -q "docs" && echo "$GOG_SERVICES" | grep -q "drive" && echo "$GOG_SERVICES" | grep -q "sheets" && echo "$GOG_SERVICES" | grep -q "calendar"; then
+                GOG_ALL_SERVICES=true
             fi
         fi
 
-        if [[ -n "$EXISTING_GOG_EMAIL" && "$GOG_HAS_DOCS" == "true" && "$GOG_HAS_DRIVE" == "true" ]]; then
-            ok "gog already authenticated for $EXISTING_GOG_EMAIL (gmail, docs, drive)"
+        if [[ -n "$EXISTING_GOG_EMAIL" && "$GOG_ALL_SERVICES" == "true" ]]; then
+            ok "gog already authenticated for $EXISTING_GOG_EMAIL (gmail, docs, drive, sheets, calendar)"
             gmail_addr="$EXISTING_GOG_EMAIL"
         elif [[ -n "$EXISTING_GOG_EMAIL" ]]; then
-            # Account exists but missing docs/drive scopes -- need to re-auth
+            # Account exists but missing some scopes -- need to re-auth
             gmail_addr="$EXISTING_GOG_EMAIL"
             echo ""
-            warn "gog is authenticated for $EXISTING_GOG_EMAIL but missing Google Docs/Drive scopes"
-            echo "    Re-authenticating to add docs and drive access..."
+            warn "gog is authenticated for $EXISTING_GOG_EMAIL but missing some service scopes"
+            echo "    Re-authenticating to add all services (gmail, docs, drive, sheets, calendar)..."
             echo ""
             echo "    1. A URL will appear -- open it in your LOCAL browser"
             echo "    2. Sign in as $gmail_addr"
-            echo "    3. Authorize the expanded permissions (Docs + Drive)"
+            echo "    3. Authorize the expanded permissions"
             echo "    4. You'll be redirected to a localhost URL that won't load"
             echo "    5. Copy the ENTIRE redirect URL from your browser address bar"
             echo "    6. Paste it back here"
             echo ""
-            echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail,drive,docs --manual --force-consent${NC}"
+            echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail,drive,docs,sheets,calendar --manual --force-consent${NC}"
             echo ""
             read -p "    Press Enter to continue..." _
-            if gog auth add "$gmail_addr" --services gmail,drive,docs --manual --force-consent 2>&1; then
+            if gog auth add "$gmail_addr" --services gmail,drive,docs,sheets,calendar --manual --force-consent 2>&1; then
                 ok "gog re-authenticated with gmail, docs, and drive scopes"
             else
                 warn "gog re-auth may have failed. To retry manually:"
-                echo "    gog auth add $gmail_addr --services gmail,drive,docs --force-consent"
+                echo "    gog auth add $gmail_addr --services gmail,drive,docs,sheets,calendar --force-consent"
             fi
         else
 
@@ -805,14 +803,14 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                     echo "    5. Copy the ENTIRE redirect URL from your browser address bar"
                     echo "    6. Paste it back here"
                     echo ""
-                    echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail,drive,docs --manual${NC}"
+                    echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail,drive,docs,sheets,calendar --manual${NC}"
                     echo ""
                     read -p "    Press Enter to continue..." _
-                    if gog auth add "$gmail_addr" --services gmail,drive,docs --manual 2>&1; then
+                    if gog auth add "$gmail_addr" --services gmail,drive,docs,sheets,calendar --manual 2>&1; then
                         ok "gog authenticated for $gmail_addr (gmail, docs, drive)"
                     else
                         warn "gog auth may have failed. To retry manually:"
-                        echo "    gog auth add $gmail_addr --services gmail,drive,docs"
+                        echo "    gog auth add $gmail_addr --services gmail,drive,docs,sheets,calendar"
                     fi
                 else
                     warn "Cannot authenticate gog without credentials. Gmail setup may fail."
