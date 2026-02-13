@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.8"
+SCRIPT_VERSION="1.4.9"
 
 # Set gog keyring password so file-backend never prompts interactively
 # This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
@@ -458,7 +458,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo -e "${YELLOW}>>> Running: openclaw channels login --channel whatsapp${NC}"
             echo -e "${YELLOW}>>> A QR code should appear below. Scan it with WhatsApp.${NC}"
             echo ""
-            openclaw channels login --channel whatsapp
+            if openclaw channels login --channel whatsapp 2>&1; then
+                WHATSAPP_OK=true
+            fi
         fi
     fi
 
@@ -477,7 +479,9 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo ""
             echo -e "${YELLOW}>>> Running: openclaw channels add --channel telegram --token <TOKEN>${NC}"
             echo ""
-            openclaw channels add --channel telegram --token "$tg_token"
+            if openclaw channels add --channel telegram --token "$tg_token" 2>&1; then
+                TELEGRAM_OK=true
+            fi
             ok "Telegram bot configured"
             echo ""
             echo "    Your bot is ready! Message it on Telegram to test."
@@ -821,7 +825,19 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr --project $GCP_PROJECT${NC}"
                 echo ""
                 if openclaw webhooks gmail setup --account "$gmail_addr" --project "$GCP_PROJECT" 2>&1; then
-                    ok "Gmail webhook configured successfully"
+                    ok "Gmail webhook configured"
+                    # Start the gmail watch process (listens for Pub/Sub push notifications)
+                    echo ""
+                    echo "    Starting Gmail watch process..."
+                    export GOG_KEYRING_PASSWORD="openclaw"
+                    nohup openclaw webhooks gmail run --account "$gmail_addr" > /var/log/openclaw-gmail.log 2>&1 &
+                    GMAIL_PID=$!
+                    sleep 2
+                    if kill -0 "$GMAIL_PID" 2>/dev/null; then
+                        ok "Gmail watch running (pid $GMAIL_PID, log: /var/log/openclaw-gmail.log)"
+                    else
+                        warn "Gmail watch may not have started. Check: /var/log/openclaw-gmail.log"
+                    fi
                     GMAIL_OK=true
                 else
                     GMAIL_OUTPUT=$(openclaw webhooks gmail setup --account "$gmail_addr" --project "$GCP_PROJECT" 2>&1 || true)
@@ -842,7 +858,18 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 echo -e "${YELLOW}>>> Running: openclaw webhooks gmail setup --account $gmail_addr${NC}"
                 echo ""
                 if openclaw webhooks gmail setup --account "$gmail_addr" 2>&1; then
-                    ok "Gmail webhook configured successfully"
+                    ok "Gmail webhook configured"
+                    echo ""
+                    echo "    Starting Gmail watch process..."
+                    export GOG_KEYRING_PASSWORD="openclaw"
+                    nohup openclaw webhooks gmail run --account "$gmail_addr" > /var/log/openclaw-gmail.log 2>&1 &
+                    GMAIL_PID=$!
+                    sleep 2
+                    if kill -0 "$GMAIL_PID" 2>/dev/null; then
+                        ok "Gmail watch running (pid $GMAIL_PID, log: /var/log/openclaw-gmail.log)"
+                    else
+                        warn "Gmail watch may not have started. Check: /var/log/openclaw-gmail.log"
+                    fi
                     GMAIL_OK=true
                 else
                     warn "Gmail setup failed. Check the error output above."
@@ -864,23 +891,32 @@ fi
 
 DROPLET_IP=$(hostname -I | awk '{print $1}')
 
-# Check if any channels were actually configured
-CHANNELS_CONFIGURED=$(openclaw status 2>&1 | grep -c "Enabled.*true" || true)
-CHANNELS_CONFIGURED=${CHANNELS_CONFIGURED:-0}
+# Check what was configured this run
+CONFIGURED_LIST=""
+if [[ "${GMAIL_OK:-false}" == "true" ]]; then
+    CONFIGURED_LIST="Gmail"
+fi
+if [[ "${WHATSAPP_OK:-false}" == "true" ]]; then
+    CONFIGURED_LIST="${CONFIGURED_LIST:+$CONFIGURED_LIST, }WhatsApp"
+fi
+if [[ "${TELEGRAM_OK:-false}" == "true" ]]; then
+    CONFIGURED_LIST="${CONFIGURED_LIST:+$CONFIGURED_LIST, }Telegram"
+fi
 
 echo ""
-if [[ "$CHANNELS_CONFIGURED" -gt 0 ]]; then
+if [[ -n "$CONFIGURED_LIST" ]]; then
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}  Setup complete!${NC}"
     echo -e "${GREEN}========================================${NC}"
+    echo ""
+    echo -e "    Channels configured: ${CYAN}${CONFIGURED_LIST}${NC}"
 else
     echo -e "${YELLOW}========================================${NC}"
     echo -e "${YELLOW}  Setup finished (no channels configured)${NC}"
     echo -e "${YELLOW}========================================${NC}"
     echo ""
-    echo "    OpenClaw is running but no messaging channels are active."
-    echo "    Run this script again and select channels to set up,"
-    echo "    or configure them manually via SSH."
+    echo "    OpenClaw is running but no messaging channels were set up."
+    echo "    Run this script again and select channels to configure."
 fi
 echo ""
 echo -e "${CYAN}Quick commands:${NC}"
