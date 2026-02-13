@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.3"
+SCRIPT_VERSION="1.4.4"
 CHECKPOINT_FILE="/tmp/openclaw-setup-checkpoint"
 
 # Colors for output
@@ -711,19 +711,19 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
                 if [[ -f "$GOG_CREDS" ]]; then
                     echo ""
                     echo "    Authenticating gog for $gmail_addr..."
-                    echo "    This will use the --no-browser flow since this is a headless server."
+                    echo "    This uses the --manual flow (no browser needed on this server)."
                     echo ""
-                    echo "    1. A URL will appear -- open it in your browser"
+                    echo "    1. A URL will appear -- open it in your LOCAL browser"
                     echo "    2. Sign in as $gmail_addr"
                     echo "    3. Authorize the app"
-                    echo "    4. Copy the authorization code and paste it here"
+                    echo "    4. You'll be redirected to a localhost URL that won't load"
+                    echo "    5. Copy the ENTIRE redirect URL from your browser address bar"
+                    echo "    6. Paste it back here"
                     echo ""
-                    echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail --no-browser${NC}"
+                    echo -e "${YELLOW}>>> Running: gog auth add $gmail_addr --services gmail --manual${NC}"
                     echo ""
                     read -p "    Press Enter to continue..." _
-                    if gog auth add "$gmail_addr" --services gmail --no-browser 2>&1; then
-                        ok "gog authenticated for $gmail_addr"
-                    elif gog auth add "$gmail_addr" --services gmail 2>&1; then
+                    if gog auth add "$gmail_addr" --services gmail --manual 2>&1; then
                         ok "gog authenticated for $gmail_addr"
                     else
                         warn "gog auth may have failed. To retry manually:"
