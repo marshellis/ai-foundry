@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 
 # Set gog keyring password so file-backend never prompts interactively
 # This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
@@ -763,36 +763,40 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo "    5. Name it anything (e.g., 'OpenClaw')"
             echo "    6. Click 'Create'"
             echo "    7. Click 'Download JSON'"
-            echo "    8. Copy the contents of the downloaded JSON file"
             echo ""
-            echo -e "${YELLOW}    Paste the JSON contents below, then press Enter twice:${NC}"
+            echo -e "${YELLOW}    Upload the downloaded JSON file to this server.${NC}"
+            echo "    From a NEW terminal on your local machine, run:"
+            echo ""
+            DROPLET_IP=$(hostname -I | awk '{print $1}')
+            echo -e "${CYAN}    scp <path-to-downloaded-json> root@${DROPLET_IP}:/root/.config/gogcli/credentials.json${NC}"
+            echo ""
+            echo "    Example (Windows PowerShell):"
+            echo "    scp \$HOME\\Downloads\\client_secret_*.json root@${DROPLET_IP}:/root/.config/gogcli/credentials.json"
             echo ""
 
-            # Read multiline JSON input
             mkdir -p /root/.config/gogcli
-            CREDS_INPUT=""
-            while IFS= read -r line; do
-                [[ -z "$line" ]] && break
-                CREDS_INPUT+="$line"
-            done
 
-            if [[ -n "$CREDS_INPUT" ]]; then
-                echo "$CREDS_INPUT" > "$GOG_CREDS"
-                # Validate it looks like JSON
-                if grep -q "client_id" "$GOG_CREDS" 2>/dev/null; then
-                    # Register with gog properly
-                    gog auth credentials set "$GOG_CREDS" 2>/dev/null || true
-                    ok "OAuth credentials saved and registered with gog"
-                else
-                    warn "That doesn't look like valid OAuth credentials JSON"
-                    echo "    Expected JSON with 'client_id' field"
-                    echo "    File saved to $GOG_CREDS -- you can replace it manually"
+            # Wait for the file to appear
+            while true; do
+                read -p "    Press Enter after uploading the file (or 'skip' to skip Gmail)..." upload_response
+                if [[ "$upload_response" == "skip" ]]; then
+                    warn "Skipping Gmail setup. To set up later, upload credentials and re-run."
+                    break
                 fi
-            else
-                warn "No credentials entered"
-                echo "    Download the JSON from: https://console.cloud.google.com/apis/credentials"
-                echo "    Then run: gog auth credentials set <path-to-credentials.json>"
-            fi
+                if [[ -f "$GOG_CREDS" ]]; then
+                    if grep -q "client_id" "$GOG_CREDS" 2>/dev/null; then
+                        gog auth credentials set "$GOG_CREDS" 2>/dev/null || true
+                        ok "OAuth credentials saved and registered with gog"
+                        break
+                    else
+                        warn "File exists but doesn't look like valid OAuth credentials JSON"
+                        echo "    Expected JSON with 'client_id' field. Try uploading again."
+                    fi
+                else
+                    warn "File not found at $GOG_CREDS"
+                    echo "    Make sure the scp command completed successfully. Try again."
+                fi
+            done
         fi
 
         # Now authenticate gog for the specific Gmail account
