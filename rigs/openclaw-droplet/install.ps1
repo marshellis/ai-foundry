@@ -147,7 +147,7 @@ if ($CurrentStep -lt 1) {
     }
     Write-Ok "ssh available"
 
-    # Check for doctl (optional)
+    # Check for doctl (optional - for droplet management)
     $doctlAvailable = $false
     if (Get-Command doctl -ErrorAction SilentlyContinue) {
         # Check if authenticated
@@ -166,6 +166,84 @@ if ($CurrentStep -lt 1) {
     } else {
         Write-Info "doctl not found (optional - for automated droplet creation)"
         Write-Info "Install from: https://docs.digitalocean.com/reference/doctl/how-to/install/"
+    }
+
+    # Check for gcloud CLI (required for Gmail channel setup)
+    $gcloudAvailable = $false
+    if (Get-Command gcloud -ErrorAction SilentlyContinue) {
+        $oldErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = "SilentlyContinue"
+        $gcloudVersion = & gcloud version --format="value(Google Cloud SDK)" 2>&1
+        $ErrorActionPreference = $oldErrorAction
+        if ($LASTEXITCODE -eq 0) {
+            $gcloudAvailable = $true
+            Write-Ok "gcloud CLI available ($gcloudVersion)"
+        } else {
+            $gcloudAvailable = $true
+            Write-Ok "gcloud CLI available"
+        }
+    } else {
+        Write-Warn "gcloud CLI not found (required for Gmail channel setup)"
+        Write-Host ""
+        Write-Host "    The Gmail channel requires gcloud CLI on your local machine" -ForegroundColor Yellow
+        Write-Host "    to complete authentication from the headless droplet."
+        Write-Host ""
+        Write-Host "    Install options:" -ForegroundColor Cyan
+        Write-Host "    1) Chocolatey (recommended): choco install gcloudsdk"
+        Write-Host "    2) Manual download: https://cloud.google.com/sdk/docs/install"
+        Write-Host ""
+
+        # Check if chocolatey is available
+        $chocoAvailable = $null -ne (Get-Command choco -ErrorAction SilentlyContinue)
+
+        if ($chocoAvailable) {
+            $installChoice = Read-Host "    Install gcloud via Chocolatey now? (y/n)"
+            if ($installChoice -eq "y" -or $installChoice -eq "Y") {
+                Write-Host ""
+                Write-Host "    Installing Google Cloud SDK via Chocolatey..." -ForegroundColor Cyan
+                Write-Host "    (This may take a few minutes)" -ForegroundColor Gray
+                Write-Host ""
+
+                # Chocolatey install needs admin rights - check if we have them
+                $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+                if ($isAdmin) {
+                    choco install gcloudsdk -y
+                } else {
+                    Write-Host "    Running elevated install (you may see a UAC prompt)..." -ForegroundColor Yellow
+                    Start-Process -FilePath "choco" -ArgumentList "install gcloudsdk -y" -Verb RunAs -Wait
+                }
+
+                # Refresh PATH so we can find gcloud
+                $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+                $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+                $env:Path = (($machinePath + ';' + $userPath) -split ';' | Where-Object { $_ } | Select-Object -Unique) -join ';'
+
+                if (Get-Command gcloud -ErrorAction SilentlyContinue) {
+                    $gcloudAvailable = $true
+                    Write-Ok "gcloud CLI installed successfully"
+                } else {
+                    Write-Warn "gcloud installed but not found in PATH"
+                    Write-Host "    You may need to restart your terminal, then run this script again."
+                    Write-Host "    Or add the gcloud bin directory to your PATH manually."
+                }
+            }
+        } else {
+            Write-Host "    Chocolatey not found. Install gcloud manually from:" -ForegroundColor Gray
+            Write-Host "    https://cloud.google.com/sdk/docs/install" -ForegroundColor Gray
+        }
+
+        if (-not $gcloudAvailable) {
+            Write-Host ""
+            Write-Host "    You can continue without gcloud, but Gmail setup will" -ForegroundColor Yellow
+            Write-Host "    require you to install it before that step." -ForegroundColor Yellow
+            Write-Host ""
+            $continueChoice = Read-Host "    Continue without gcloud? (y/n)"
+            if ($continueChoice -ne "y" -and $continueChoice -ne "Y") {
+                Write-Host ""
+                Write-Host "    Install gcloud, then run this script again." -ForegroundColor Cyan
+                exit 0
+            }
+        }
     }
 
     Save-Checkpoint -Step 1
