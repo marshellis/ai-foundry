@@ -29,7 +29,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ScriptVersion = "1.4.1"
+$ScriptVersion = "1.4.2"
 $RigBaseUrl = "https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet"
 $CheckpointFile = "$env:TEMP\openclaw-droplet-checkpoint.json"
 
@@ -761,15 +761,16 @@ if ($CurrentStep -lt 5) {
     # Run the setup script interactively
     # The droplet script has its own checkpointing
     ssh -o StrictHostKeyChecking=no -t "$SSHUser@$DropletIP" "bash /tmp/openclaw-setup.sh"
+    $sshExitCode = $LASTEXITCODE
 
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warn "Setup may not have completed successfully"
-        Write-Host "    Run this script again to retry/resume"
-        exit 1
-    }
-
+    # Always save checkpoint with droplet info so we don't lose state
     Save-Checkpoint -Step 5 -DropletIP $DropletIP -SSHUser $SSHUser -DropletId $DropletId -DropletName $DropletName
     $CurrentStep = 5
+
+    if ($sshExitCode -ne 0) {
+        Write-Warn "Setup may not have completed successfully (exit code: $sshExitCode)"
+        Write-Host "    Run this script again to retry/resume"
+    }
 }
 
 # -------------------------------------------------------
