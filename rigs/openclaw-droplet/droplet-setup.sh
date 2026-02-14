@@ -14,7 +14,7 @@
 #
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.5"
+SCRIPT_VERSION="1.5.6"
 
 # Set gog keyring password so file-backend never prompts interactively
 # This is the documented approach for headless/CI: https://github.com/steipete/gogcli#keyring-backend-keychain-vs-encrypted-file
@@ -744,7 +744,7 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
 
         # Check if credentials file exists
         GOG_CREDS="/root/.config/gogcli/credentials.json"
-        if [[ -f "$GOG_CREDS" ]]; then
+        if [[ -f "$GOG_CREDS" ]] && grep -q "client_id" "$GOG_CREDS" 2>/dev/null; then
             ok "OAuth credentials already configured"
         else
             echo ""
@@ -762,41 +762,26 @@ if [[ "$CURRENT_STEP" -lt 10 ]]; then
             echo "    4. Application type: 'Desktop app'"
             echo "    5. Name it anything (e.g., 'OpenClaw')"
             echo "    6. Click 'Create'"
-            echo "    7. Click 'Download JSON'"
-            echo ""
-            echo -e "${YELLOW}    Upload the downloaded JSON file to this server.${NC}"
-            echo "    From a NEW terminal on your local machine, run:"
-            echo ""
-            DROPLET_IP=$(hostname -I | awk '{print $1}')
-            echo -e "${CYAN}    scp <path-to-downloaded-json> root@${DROPLET_IP}:/root/.config/gogcli/credentials.json${NC}"
-            echo ""
-            echo "    Example (Windows PowerShell):"
-            echo "    scp \$HOME\\Downloads\\client_secret_*.json root@${DROPLET_IP}:/root/.config/gogcli/credentials.json"
+            echo "    7. Copy the Client ID and Client Secret shown on screen"
             echo ""
 
-            mkdir -p /root/.config/gogcli
+            read -p "    Enter Client ID (or 'skip' to skip Gmail): " oauth_client_id
+            if [[ "$oauth_client_id" == "skip" ]]; then
+                warn "Skipping Gmail setup. Re-run this script later to configure."
+            elif [[ -n "$oauth_client_id" ]]; then
+                read -p "    Enter Client Secret: " oauth_client_secret
 
-            # Wait for the file to appear
-            while true; do
-                read -p "    Press Enter after uploading the file (or 'skip' to skip Gmail)..." upload_response
-                if [[ "$upload_response" == "skip" ]]; then
-                    warn "Skipping Gmail setup. To set up later, upload credentials and re-run."
-                    break
-                fi
-                if [[ -f "$GOG_CREDS" ]]; then
-                    if grep -q "client_id" "$GOG_CREDS" 2>/dev/null; then
-                        gog auth credentials set "$GOG_CREDS" 2>/dev/null || true
-                        ok "OAuth credentials saved and registered with gog"
-                        break
-                    else
-                        warn "File exists but doesn't look like valid OAuth credentials JSON"
-                        echo "    Expected JSON with 'client_id' field. Try uploading again."
-                    fi
+                if [[ -n "$oauth_client_secret" ]]; then
+                    mkdir -p /root/.config/gogcli
+                    cat > "$GOG_CREDS" << CREDS_EOF
+{"installed":{"client_id":"${oauth_client_id}","project_id":"$(gcloud config get-value project 2>/dev/null || echo 'unknown')","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"${oauth_client_secret}","redirect_uris":["http://localhost"]}}
+CREDS_EOF
+                    gog auth credentials set "$GOG_CREDS" 2>/dev/null || true
+                    ok "OAuth credentials saved"
                 else
-                    warn "File not found at $GOG_CREDS"
-                    echo "    Make sure the scp command completed successfully. Try again."
+                    warn "No client secret entered"
                 fi
-            done
+            fi
         fi
 
         # Now authenticate gog for the specific Gmail account
