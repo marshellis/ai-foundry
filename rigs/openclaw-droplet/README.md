@@ -1,16 +1,18 @@
 # OpenClaw on DigitalOcean
 
-Deploy [OpenClaw](https://openclaw.ai) -- a personal AI assistant -- on a DigitalOcean droplet with WhatsApp, Telegram, Gmail, and Google Docs/Drive integration.
+Deploy [OpenClaw](https://openclaw.ai) -- a personal AI assistant -- on a DigitalOcean droplet from Windows, with Gmail and Google Drive/Docs integration.
 
 ## What This Rig Does
 
+- **Designed to run from Windows** -- the installer is a PowerShell script that SSHs into your droplet
 - **Creates a droplet automatically** using doctl (DigitalOcean CLI), or connects to an existing one
 - Installs OpenClaw on a $6/month Ubuntu droplet
 - Configures swap for 1GB RAM droplets
 - Sets up systemd for always-on operation
-- Guides you through connecting WhatsApp, Telegram, and Gmail
+- **Sets up Gmail** via Google Cloud Pub/Sub webhooks so your assistant can send and receive email
+- **Sets up Google Drive/Docs** OAuth scopes so your assistant can read and write Google Docs
 
-After setup, your AI assistant responds on all three channels 24/7.
+After setup, your AI assistant has full Gmail and Google Drive access and runs 24/7.
 
 ## Prerequisites
 
@@ -18,32 +20,19 @@ Before running the installer, you need:
 
 | Requirement | Description | Where to Get It |
 |-------------|-------------|-----------------|
+| Windows 10+ | PowerShell with OpenSSH client | Built-in |
 | DigitalOcean Account | Account with billing enabled | [cloud.digitalocean.com](https://cloud.digitalocean.com/) |
 | doctl (optional) | DigitalOcean CLI for automated droplet creation | [Install doctl](https://docs.digitalocean.com/reference/doctl/how-to/install/) |
 | SSH Key | Added to DigitalOcean (for doctl) or droplet | Created during setup |
 | AI API Key | Anthropic or OpenAI API key | [console.anthropic.com](https://console.anthropic.com/) |
-| Dedicated Phone Number | For WhatsApp (see guide below) | Google Voice, prepaid SIM, etc. |
-| Google Cloud Account | For Gmail Pub/Sub (optional) | [console.cloud.google.com](https://console.cloud.google.com/) |
+| Google Cloud Account | For Gmail Pub/Sub and Drive/Docs OAuth | [console.cloud.google.com](https://console.cloud.google.com/) |
 
 ### Setting Up doctl (Recommended)
 
 The installer can create your droplet automatically if you have doctl installed and authenticated:
 
-**Windows (Scoop):**
 ```powershell
 scoop install doctl
-doctl auth init
-```
-
-**macOS (Homebrew):**
-```bash
-brew install doctl
-doctl auth init
-```
-
-**Linux (Snap):**
-```bash
-sudo snap install doctl
 doctl auth init
 ```
 
@@ -60,17 +49,13 @@ doctl compute ssh-key create my-key --public-key-file ~/.ssh/id_rsa.pub
 
 ## Quick Install
 
-Run from your local machine (Windows, macOS, or Linux):
+Run from PowerShell on your Windows machine:
 
-**Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex
+irm https://raw.githubusercontent.com/jjackson/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex
 ```
 
-**macOS/Linux (Bash):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.sh | bash
-```
+> A bash installer (`install.sh`) is also included for macOS/Linux, but this rig is designed and tested for Windows.
 
 The installer will:
 1. Check for doctl and offer to create a new droplet, or ask for an existing droplet IP
@@ -78,7 +63,7 @@ The installer will:
 3. SSH into the droplet
 4. Install OpenClaw and dependencies
 5. Run the onboarding wizard
-6. Print channel setup instructions
+6. Set up Gmail (Pub/Sub) and Google Drive/Docs access
 
 ### Droplet Management with doctl
 

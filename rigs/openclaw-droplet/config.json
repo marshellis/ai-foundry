@@ -2,15 +2,15 @@
   "name": "OpenClaw on DigitalOcean",
   "slug": "openclaw-droplet",
   "version": "1.2.0",
-  "tagline": "Deploy your personal AI assistant with WhatsApp, Telegram, Gmail, and Google Docs",
-  "description": "A complete setup for OpenClaw on a DigitalOcean droplet. Can create the droplet automatically using doctl (DigitalOcean CLI) or connect to an existing one. Includes swap optimization and guided setup for WhatsApp (with dedicated number), Telegram bot, Gmail Pub/Sub integration, and Google Docs/Drive access.",
+  "tagline": "Deploy OpenClaw from Windows with Gmail and Google Drive integration",
+  "description": "A Windows-first installer for OpenClaw on a DigitalOcean droplet. Runs from PowerShell on your local machine, SSHs into the droplet, and sets up OpenClaw with Gmail (via Pub/Sub) and Google Drive/Docs access. Can create the droplet automatically using doctl (DigitalOcean CLI) or connect to an existing one. Includes swap optimization and guided setup for Gmail webhooks and Google Drive OAuth scopes.",
   "category": "self-hosted",
-  "tags": ["openclaw", "digitalocean", "whatsapp", "telegram", "gmail", "google-docs", "ai-assistant"],
+  "tags": ["openclaw", "digitalocean", "windows", "gmail", "google-drive", "google-docs", "ai-assistant"],
   "difficulty": "intermediate",
   "status": "ready",
 
   "repository": {
-    "owner": "marshellis",
+    "owner": "jjackson",
     "name": "ai-foundry",
     "branch": "main",
     "path": "rigs/openclaw-droplet"
@@ -18,20 +18,24 @@
 
   "credits": {
     "name": "OpenClaw",
-    "description": "OpenClaw is a personal AI assistant. This rig automates the official DigitalOcean deployment guide and adds channel setup for WhatsApp, Telegram, and Gmail.",
+    "description": "OpenClaw is a personal AI assistant. This rig automates the official DigitalOcean deployment guide from Windows and configures Gmail and Google Drive/Docs access for the instance.",
     "url": "https://docs.openclaw.ai/platforms/digitalocean",
     "repository": "https://github.com/openclaw/openclaw"
   },
 
-  "whatItDoes": "Deploys OpenClaw on a DigitalOcean droplet ($6/month) with full messaging and document integration. The installer runs from your local machine, SSHs into the droplet, installs OpenClaw with systemd persistence, and walks you through connecting WhatsApp (with a dedicated number), Telegram (via BotFather), Gmail (via Pub/Sub), and Google Docs/Drive (read and write access). After setup, your AI assistant responds on all three channels and can read/write Google Docs it has access to.",
+  "whatItDoes": "Deploys OpenClaw on a DigitalOcean droplet ($6/month) from a Windows PowerShell terminal. The installer SSHs into the droplet, installs OpenClaw with systemd persistence, and walks you through setting up Gmail (via Pub/Sub webhooks) and Google Drive/Docs (read and write access via OAuth). After setup, your AI assistant can send and receive email and read/write Google Docs.",
 
   "useCases": [
-    "Personal AI assistant accessible via WhatsApp, Telegram, and email",
+    "Personal AI assistant with Gmail and Google Drive access, deployed from Windows",
     "Always-on AI that runs 24/7 on a cheap VPS",
-    "Private alternative to cloud AI assistants"
+    "Private alternative to cloud AI assistants with full Google Workspace integration"
   ],
 
   "prerequisites": [
+    {
+      "name": "Windows 10+",
+      "description": "PowerShell with OpenSSH client (built into Windows 10 and later)"
+    },
     {
       "name": "DigitalOcean Account",
       "description": "Account with billing enabled. Droplet can be created automatically via doctl or manually.",
@@ -52,12 +56,8 @@
       "link": "https://console.anthropic.com/"
     },
     {
-      "name": "Dedicated Phone Number (for WhatsApp)",
-      "description": "Google Voice, prepaid SIM, or VoIP number -- see README for options"
-    },
-    {
-      "name": "Google Cloud Account (for Gmail)",
-      "description": "With billing enabled for Pub/Sub",
+      "name": "Google Cloud Account",
+      "description": "With billing enabled for Gmail Pub/Sub and Google Drive/Docs OAuth",
       "link": "https://console.cloud.google.com/"
     }
   ],
@@ -88,16 +88,8 @@
       "detail": "Interactive setup for daemon, API keys, and initial config"
     },
     {
-      "label": "Guide WhatsApp setup",
-      "detail": "Link WhatsApp via QR code with your dedicated number"
-    },
-    {
-      "label": "Guide Telegram setup",
-      "detail": "Create bot via BotFather and configure token"
-    },
-    {
       "label": "Guide Gmail Pub/Sub setup",
-      "detail": "Walk through GCP project, topic, and webhook configuration"
+      "detail": "Walk through GCP project, topic, and webhook configuration for sending and receiving email"
     },
     {
       "label": "Authorize Google Docs and Drive",
@@ -115,32 +107,28 @@
       "expectedResult": "ssh -L 18789:localhost:18789 root@DROPLET_IP then open http://localhost:18789"
     },
     {
-      "instruction": "Send a WhatsApp message to your assistant",
-      "expectedResult": "Message appears in OpenClaw logs, assistant responds"
-    },
-    {
-      "instruction": "Send a Telegram message to your bot",
-      "expectedResult": "Bot responds in Telegram"
-    },
-    {
       "instruction": "Send an email to your assistant's Gmail",
-      "expectedResult": "Email triggers webhook, assistant processes and can respond"
+      "expectedResult": "Email triggers Pub/Sub webhook, assistant processes and can respond"
     },
     {
       "instruction": "Ask the assistant to read a Google Doc",
       "expectedResult": "Assistant can access and summarize Google Docs the authenticated account has access to"
+    },
+    {
+      "instruction": "Ask the assistant to list files in Google Drive",
+      "expectedResult": "Assistant can list and search files in Google Drive"
     }
   ],
 
   "files": [
     {
       "name": "install.ps1",
-      "description": "Remote installer for Windows (SSHs into droplet)",
+      "description": "Windows installer -- runs from PowerShell, SSHs into droplet",
       "path": "rigs/openclaw-droplet/install.ps1"
     },
     {
       "name": "install.sh",
-      "description": "Remote installer for macOS/Linux (SSHs into droplet)",
+      "description": "Bash installer for macOS/Linux (also available but not the primary target)",
       "path": "rigs/openclaw-droplet/install.sh"
     },
     {
@@ -156,7 +144,7 @@
   ],
 
   "install": {
-    "powershell": "irm https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex",
-    "bash": "curl -fsSL https://raw.githubusercontent.com/marshellis/ai-foundry/main/rigs/openclaw-droplet/install.sh | bash"
+    "powershell": "irm https://raw.githubusercontent.com/jjackson/ai-foundry/main/rigs/openclaw-droplet/install.ps1 | iex",
+    "bash": "curl -fsSL https://raw.githubusercontent.com/jjackson/ai-foundry/main/rigs/openclaw-droplet/install.sh | bash"
   }
 }
