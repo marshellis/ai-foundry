@@ -11,7 +11,7 @@ export const submitRigSchema = z.object({
     owner: z.string().min(1, "Repository owner is required"),
     name: z.string().min(1, "Repository name is required"),
     branch: z.string().default("main"),
-    path: z.string().min(1, "Path within the repository is required"),
+    path: z.string(), // Empty string means root directory
   }),
 });
 
