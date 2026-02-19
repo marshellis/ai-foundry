@@ -28,8 +28,8 @@ export function nameToSlug(name: string): string {
 }
 
 /**
- * Validate that a GitHub repo exists and contains install.ps1 and install.sh
- * at the specified path.
+ * Validate that a GitHub repo exists and contains at least one install script
+ * (install.ps1 or install.sh) at the specified path.
  */
 export async function validateGitHubRepo(
   owner: string,
@@ -70,18 +70,13 @@ export async function validateGitHubRepo(
     }
 
     const fileNames = files.map((f: { name: string }) => f.name);
+    const hasPs1 = fileNames.includes("install.ps1");
+    const hasSh = fileNames.includes("install.sh");
 
-    if (!fileNames.includes("install.ps1")) {
+    if (!hasPs1 && !hasSh) {
       return {
         valid: false,
-        error: "Missing install.ps1 in the specified path",
-      };
-    }
-
-    if (!fileNames.includes("install.sh")) {
-      return {
-        valid: false,
-        error: "Missing install.sh in the specified path",
+        error: "Missing install script (install.ps1 or install.sh) in the specified path",
       };
     }
 

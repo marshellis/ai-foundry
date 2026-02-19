@@ -148,8 +148,8 @@ export function SubmitRigForm() {
     const rigPaths: string[] = [];
     const fileNames = contents.map((c) => c.name);
 
-    // Check if this directory has install scripts
-    if (fileNames.includes("install.ps1") && fileNames.includes("install.sh")) {
+    // Check if this directory has at least one install script
+    if (fileNames.includes("install.ps1") || fileNames.includes("install.sh")) {
       rigPaths.push(currentPath || ".");
     }
 
@@ -327,7 +327,7 @@ export function SubmitRigForm() {
         <CardHeader>
           <CardTitle>GitHub Repository</CardTitle>
           <CardDescription>
-            Where your rig lives. Must contain install.ps1 and install.sh.
+            Where your rig lives. Must contain install.ps1 or install.sh.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -415,7 +415,7 @@ export function SubmitRigForm() {
               <p className="text-xs text-muted-foreground">
                 {paths.length === 0 && repoBranch && !isLoadingPaths
                   ? "No install scripts found. Enter path manually or check your repo."
-                  : "Folder containing install.ps1 and install.sh"}
+                  : "Folder containing install.ps1 or install.sh"}
               </p>
             </div>
           </div>
