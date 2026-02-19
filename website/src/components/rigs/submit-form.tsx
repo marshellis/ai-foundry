@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
 const categories = [
   { value: "ci-cd", label: "CI/CD" },
@@ -27,6 +28,34 @@ const categories = [
   { value: "personal", label: "Personal" },
   { value: "automation", label: "Automation" },
 ];
+
+interface GitHubBranch {
+  name: string;
+}
+
+interface GitHubContent {
+  name: string;
+  type: string;
+  path: string;
+}
+
+function parseRepoInput(input: string): { owner: string; name: string } | null {
+  const trimmed = input.trim();
+  
+  // Handle full GitHub URLs: https://github.com/owner/repo or https://github.com/owner/repo.git
+  const urlMatch = trimmed.match(/github\.com\/([^/]+)\/([^/.]+)/);
+  if (urlMatch) {
+    return { owner: urlMatch[1], name: urlMatch[2] };
+  }
+  
+  // Handle owner/repo format
+  const slashMatch = trimmed.match(/^([^/]+)\/([^/]+)$/);
+  if (slashMatch) {
+    return { owner: slashMatch[1], name: slashMatch[2] };
+  }
+  
+  return null;
+}
 
 export function SubmitRigForm() {
   const router = useRouter();
@@ -39,13 +68,138 @@ export function SubmitRigForm() {
   const [tagline, setTagline] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
-  const [repoOwner, setRepoOwner] = useState("");
-  const [repoName, setRepoName] = useState("");
-  const [repoBranch, setRepoBranch] = useState("main");
+  const [repoInput, setRepoInput] = useState("");
+  const [repoBranch, setRepoBranch] = useState("");
   const [repoPath, setRepoPath] = useState("");
+
+  // Dynamic data from GitHub
+  const [parsedRepo, setParsedRepo] = useState<{ owner: string; name: string } | null>(null);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [paths, setPaths] = useState<string[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  const [isLoadingPaths, setIsLoadingPaths] = useState(false);
+  const [repoError, setRepoError] = useState<string | null>(null);
+
+  // Parse repo input and fetch branches when it changes
+  useEffect(() => {
+    const parsed = parseRepoInput(repoInput);
+    setParsedRepo(parsed);
+    
+    if (!parsed) {
+      setBranches([]);
+      setPaths([]);
+      setRepoBranch("");
+      setRepoPath("");
+      setRepoError(repoInput.trim() ? "Enter a valid repository (owner/repo or GitHub URL)" : null);
+      return;
+    }
+
+    setRepoError(null);
+    setIsLoadingBranches(true);
+    setBranches([]);
+    setRepoBranch("");
+    setPaths([]);
+    setRepoPath("");
+
+    fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.name}/branches`, {
+      headers: { Accept: "application/vnd.github.v3+json" },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(res.status === 404 ? "Repository not found" : "Failed to fetch branches");
+        }
+        return res.json();
+      })
+      .then((data: GitHubBranch[]) => {
+        const branchNames = data.map((b) => b.name);
+        setBranches(branchNames);
+        // Auto-select main or master if available
+        if (branchNames.includes("main")) {
+          setRepoBranch("main");
+        } else if (branchNames.includes("master")) {
+          setRepoBranch("master");
+        } else if (branchNames.length > 0) {
+          setRepoBranch(branchNames[0]);
+        }
+      })
+      .catch((err) => {
+        setRepoError(err.message);
+      })
+      .finally(() => {
+        setIsLoadingBranches(false);
+      });
+  }, [repoInput]);
+
+  // Fetch paths containing install scripts when branch changes
+  const findRigPaths = useCallback(async (owner: string, repo: string, branch: string, currentPath = ""): Promise<string[]> => {
+    const url = currentPath
+      ? `https://api.github.com/repos/${owner}/${repo}/contents/${currentPath}?ref=${branch}`
+      : `https://api.github.com/repos/${owner}/${repo}/contents?ref=${branch}`;
+
+    const res = await fetch(url, {
+      headers: { Accept: "application/vnd.github.v3+json" },
+    });
+
+    if (!res.ok) return [];
+
+    const contents: GitHubContent[] = await res.json();
+    if (!Array.isArray(contents)) return [];
+
+    const rigPaths: string[] = [];
+    const fileNames = contents.map((c) => c.name);
+
+    // Check if this directory has install scripts
+    if (fileNames.includes("install.ps1") && fileNames.includes("install.sh")) {
+      rigPaths.push(currentPath || ".");
+    }
+
+    // Recursively check subdirectories (limit depth to avoid too many API calls)
+    const depth = currentPath.split("/").filter(Boolean).length;
+    if (depth < 3) {
+      const dirs = contents.filter((c) => c.type === "dir" && !c.name.startsWith(".") && c.name !== "node_modules");
+      const subResults = await Promise.all(
+        dirs.slice(0, 10).map((d) => findRigPaths(owner, repo, branch, d.path))
+      );
+      rigPaths.push(...subResults.flat());
+    }
+
+    return rigPaths;
+  }, []);
+
+  useEffect(() => {
+    if (!parsedRepo || !repoBranch) {
+      setPaths([]);
+      setRepoPath("");
+      return;
+    }
+
+    setIsLoadingPaths(true);
+    setPaths([]);
+    setRepoPath("");
+
+    findRigPaths(parsedRepo.owner, parsedRepo.name, repoBranch)
+      .then((foundPaths) => {
+        setPaths(foundPaths);
+        if (foundPaths.length === 1) {
+          setRepoPath(foundPaths[0]);
+        }
+      })
+      .catch(() => {
+        setPaths([]);
+      })
+      .finally(() => {
+        setIsLoadingPaths(false);
+      });
+  }, [parsedRepo, repoBranch, findRigPaths]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    
+    if (!parsedRepo) {
+      setError("Please enter a valid GitHub repository");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     setFieldErrors({});
@@ -56,10 +210,10 @@ export function SubmitRigForm() {
       description,
       category,
       repository: {
-        owner: repoOwner,
-        name: repoName,
-        branch: repoBranch || "main",
-        path: repoPath,
+        owner: parsedRepo.owner,
+        name: parsedRepo.name,
+        branch: repoBranch,
+        path: repoPath === "." ? "" : repoPath,
       },
     };
 
@@ -177,49 +331,91 @@ export function SubmitRigForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="repoOwner">Owner</Label>
-              <Input
-                id="repoOwner"
-                value={repoOwner}
-                onChange={(e) => setRepoOwner(e.target.value)}
-                placeholder="your-username"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="repoName">Repository</Label>
-              <Input
-                id="repoName"
-                value={repoName}
-                onChange={(e) => setRepoName(e.target.value)}
-                placeholder="my-rig-repo"
-                required
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="repoInput">Repository</Label>
+            <Input
+              id="repoInput"
+              value={repoInput}
+              onChange={(e) => setRepoInput(e.target.value)}
+              placeholder="owner/repo or https://github.com/owner/repo"
+              required
+            />
+            {repoError && (
+              <p className="text-xs text-red-500">{repoError}</p>
+            )}
+            {parsedRepo && !repoError && (
+              <p className="text-xs text-green-600">
+                Found: {parsedRepo.owner}/{parsedRepo.name}
+              </p>
+            )}
           </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="repoBranch">Branch</Label>
-              <Input
-                id="repoBranch"
-                value={repoBranch}
-                onChange={(e) => setRepoBranch(e.target.value)}
-                placeholder="main"
-              />
+              {isLoadingBranches ? (
+                <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading branches...
+                </div>
+              ) : branches.length > 0 ? (
+                <Select value={repoBranch} onValueChange={setRepoBranch} required>
+                  <SelectTrigger id="repoBranch">
+                    <SelectValue placeholder="Select a branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((b) => (
+                      <SelectItem key={b} value={b}>
+                        {b}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="repoBranch"
+                  value={repoBranch}
+                  onChange={(e) => setRepoBranch(e.target.value)}
+                  placeholder="main"
+                  disabled={!parsedRepo}
+                />
+              )}
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="repoPath">Path</Label>
-              <Input
-                id="repoPath"
-                value={repoPath}
-                onChange={(e) => setRepoPath(e.target.value)}
-                placeholder="rigs/my-rig"
-                required
-              />
+              {isLoadingPaths ? (
+                <div className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Scanning for rigs...
+                </div>
+              ) : paths.length > 0 ? (
+                <Select value={repoPath} onValueChange={setRepoPath} required>
+                  <SelectTrigger id="repoPath">
+                    <SelectValue placeholder="Select rig location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paths.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p === "." ? "(root)" : p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="repoPath"
+                  value={repoPath}
+                  onChange={(e) => setRepoPath(e.target.value)}
+                  placeholder="rigs/my-rig"
+                  required
+                  disabled={!repoBranch}
+                />
+              )}
               <p className="text-xs text-muted-foreground">
-                Path to the folder containing install scripts
+                {paths.length === 0 && repoBranch && !isLoadingPaths
+                  ? "No install scripts found. Enter path manually or check your repo."
+                  : "Folder containing install.ps1 and install.sh"}
               </p>
             </div>
           </div>
